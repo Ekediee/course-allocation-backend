@@ -1,6 +1,9 @@
 from app import db
 from datetime import datetime, timezone
+# from werkzeug.security import generate_password_hash, check_password_hash
+from flask_bcrypt import Bcrypt
 
+bcrypt = Bcrypt()
 
 class School(db.Model):
     __tablename__ = 'school'
@@ -43,6 +46,7 @@ class User(db.Model):
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=True)
     
     lecturer_id = db.Column(db.Integer, db.ForeignKey('lecturer.id'), unique=True, nullable=True)
+    password = db.Column(db.String(128), nullable=True)
     lecturer = db.relationship('Lecturer', backref='user_account', uselist=False)
 
     @property
@@ -60,6 +64,13 @@ class User(db.Model):
     @property
     def is_lecturer(self):
         return self.role == 'lecturer'
+    
+    # === Handle Secure Password ===
+    def set_password(self, password):
+        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password, password)
 
 
 class Program(db.Model):
@@ -67,7 +78,7 @@ class Program(db.Model):
     name = db.Column(db.String(150), nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
 
-    program_courses = db.relationship('ProgramCourse', backref='program', lazy=True)
+    # program_courses = db.relationship('ProgramCourse', backref='program', lazy=True)
 
 
 class Course(db.Model):
@@ -75,21 +86,21 @@ class Course(db.Model):
     code = db.Column(db.String(20), nullable=False, unique=True)
     title = db.Column(db.String(255), nullable=False)
 
-    program_courses = db.relationship('ProgramCourse', backref='course', lazy=True)
+    # program_courses = db.relationship('ProgramCourse', backref='course', lazy=True)
 
 
 class Semester(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False, unique=True)
 
-    program_courses = db.relationship('ProgramCourse', backref='semester', lazy=True)
+    # program_courses = db.relationship('ProgramCourse', backref='semester', lazy=True)
 
 
 class Level(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), nullable=False, unique=True)
 
-    program_courses = db.relationship('ProgramCourse', backref='level', lazy=True)
+    # program_courses = db.relationship('ProgramCourse', backref='level', lazy=True)
 
 
 # class ProgramCourse(db.Model):

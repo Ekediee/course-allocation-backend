@@ -1,18 +1,17 @@
-# import os
-# from dotenv import load_dotenv
-# load_dotenv()
+from flask_jwt_extended import jwt_required
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.models import AcademicSession, ProgramCourse, CourseAllocation, User
 from icecream import ic
 
-session_bp = Blueprint('sessions', __name__, url_prefix='/api/v1/sessions')
+session_bp = Blueprint('sessions', __name__)
 
 def get_current_user():
     # Mocked login — replace with real auth in production
     return User.query.filter_by(email='alloc_admin@babcock.edu.ng').first()
 
 @session_bp.route('/init', methods=['POST'])
+@jwt_required()
 def initialize_session():
     user = get_current_user()
 

@@ -69,7 +69,7 @@ for program in programs:
                     semester_id=semester.id,
                     bulletin_id=bulletin.id,
                     units=random.choice([2, 3]),
-                    grouping_enabled=random.choice([True, False])
+                    # grouping_enabled=random.choice([True, False])
                 )
                 program_courses.append(pc)
 

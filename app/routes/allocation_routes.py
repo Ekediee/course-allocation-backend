@@ -1,7 +1,7 @@
 from flask_jwt_extended import jwt_required, current_user
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models import Program, ProgramCourse, CourseAllocation, Semester
+from app.models import Program, ProgramCourse, CourseAllocation, Semester, Level
 from icecream import ic
 
 allocation_bp = Blueprint('allocations', __name__)
@@ -9,8 +9,8 @@ allocation_bp = Blueprint('allocations', __name__)
 @allocation_bp.route('/list', methods=['GET'])
 @jwt_required()
 def get_hod_course_allocations():
-    hod = current_user
-    department = hod.lecturer.department
+    # hod = current_user
+    department = current_user.lecturer.department
 
     programs = Program.query.filter_by(department_id=department.id).all()
     semesters = Semester.query.all()  # Or filtered by active session
@@ -22,14 +22,25 @@ def get_hod_course_allocations():
         for program in programs:
             program_data = {"id": program.id, "name": program.name, "levels": []}
             
-            levels = db.session.query(ProgramCourse.level).filter_by(program_id=program.id).distinct()
-            for level_row in levels:
-                level = level_row.level
-                level_data = {"id": str(level), "name": f"{level} Level", "courses": []}
+            # levels = db.session.query(ProgramCourse.level).filter_by(program_id=program.id).distinct()
+            # Get distinct level IDs used in this program
+            level_ids = (
+                db.session.query(ProgramCourse.level_id)
+                .filter_by(program_id=program.id)
+                .distinct()
+                .all()
+            )
+
+            for level_row in level_ids:
+                # level = level_row.level
+                level_id = level_row.level_id
+                level = Level.query.get(level_id)
+
+                level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
                 
                 program_courses = ProgramCourse.query.filter_by(
-                    program_id=program.id, level=level
-                ).all()
+                    program_id=program.id, level_id=level.id
+                ).distinct()
 
                 for pc in program_courses:
                     course = pc.course
@@ -42,7 +53,7 @@ def get_hod_course_allocations():
                         "id": str(pc.id),
                         "code": course.code,
                         "title": course.title,
-                        "unit": course.unit,
+                        "unit": course.units,
                         "isAllocated": bool(allocation),
                         "allocatedTo": allocation.lecturer.full_name if allocation else None
                     })

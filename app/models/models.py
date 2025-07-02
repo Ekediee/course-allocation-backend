@@ -85,6 +85,7 @@ class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), nullable=False, unique=True)
     title = db.Column(db.String(255), nullable=False)
+    units = db.Column(db.Integer, nullable=True)
 
     # program_courses = db.relationship('ProgramCourse', backref='course', lazy=True)
 
@@ -92,6 +93,8 @@ class Course(db.Model):
 class Semester(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False, unique=True)
+
+    allocations = db.relationship('CourseAllocation', backref='semester', lazy=True)
 
     # program_courses = db.relationship('ProgramCourse', backref='semester', lazy=True)
 
@@ -123,8 +126,6 @@ class ProgramCourse(db.Model):
     level_id = db.Column(db.Integer, db.ForeignKey('level.id'), nullable=False)
     semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'), nullable=False)
     bulletin_id = db.Column(db.Integer, db.ForeignKey('bulletin.id'), nullable=False)
-
-    units = db.Column(db.Integer, nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, onupdate=datetime.now(timezone.utc))
@@ -163,6 +164,7 @@ class CourseAllocation(db.Model):
 
     program_course_id = db.Column(db.Integer, db.ForeignKey('program_course.id'), nullable=False)
     session_id = db.Column(db.Integer, db.ForeignKey('academic_session.id'), nullable=False)
+    semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'), nullable=False)
     lecturer_id = db.Column(db.Integer, db.ForeignKey('lecturer.id'), nullable=True)
 
     group_name = db.Column(db.String(20), nullable=True)  # NULL = no group (single allocation)

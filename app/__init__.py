@@ -13,6 +13,8 @@ migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
+    app.json.sort_keys = False  # Ensure JSON keys are not sorted, preserving order
+    
     bcrypt = Bcrypt(app)
     app.config.from_object(Config)
 

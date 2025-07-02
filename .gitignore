@@ -27,7 +27,7 @@ allocation_backend/
 # Flask instance folder
 instance/
 .env
-# *.env
+*.env
 # .env.*
 *.secret
 *.key

@@ -57,7 +57,7 @@ for program in programs:
             for i in range(10):
                 code = f"{program.name[:4].upper()}{level.name[:1]}{semester.name[0]}{i+1:02d}"
                 title = f"{fake.catch_phrase()}"
-                course = Course(code=code, title=title)
+                course = Course(code=code, title=title, units=random.choice([2, 3]))
                 db.session.add(course)
                 db.session.flush()
                 courses.append(course)
@@ -68,8 +68,8 @@ for program in programs:
                     level_id=level.id,
                     semester_id=semester.id,
                     bulletin_id=bulletin.id,
-                    units=random.choice([2, 3]),
-                    grouping_enabled=random.choice([True, False])
+                    # units=random.choice([2, 3]),
+                    # grouping_enabled=random.choice([True, False])
                 )
                 program_courses.append(pc)
 
@@ -127,4 +127,4 @@ db.session.add(hod_user)
 db.session.add_all(lecturer_users)
 db.session.commit()
 
-ic("✅ Seeded School, Department, Programs, Courses, Lecturers, Users.")
+ic("Seeded School, Department, Programs, Courses, Lecturers, Users.")

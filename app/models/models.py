@@ -173,6 +173,7 @@ class CourseAllocation(db.Model):
 
     is_special_allocation = db.Column(db.Boolean, default=False)
     source_bulletin_id = db.Column(db.Integer, db.ForeignKey('bulletin.id'), nullable=True)
+    class_size = db.Column(db.Integer, nullable=True)  # e.g., 100
 
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, onupdate=datetime.now(timezone.utc))

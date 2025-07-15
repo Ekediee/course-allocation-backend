@@ -10,6 +10,7 @@ class School(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
+    acronym = db.Column(db.String(10), nullable=True)  # e.g., "SMS", "EAH"
 
     departments = db.relationship('Department', backref='school', lazy=True)
 
@@ -17,6 +18,7 @@ class School(db.Model):
 class Department(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
+    acronym = db.Column(db.String(10), nullable=True)  # e.g., "CS", "BSAD"
 
     school_id = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=False)
 
@@ -30,9 +32,12 @@ class Lecturer(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     staff_id = db.Column(db.String(50), unique=True, nullable=False)
+    gender = db.Column(db.String(50), nullable=True)
     phone = db.Column(db.String(20), nullable=True)
     rank = db.Column(db.String(50), nullable=True)  # e.g., Professor
+    specialization = db.Column(db.String(254), nullable=True) # Area of specialization
     qualification = db.Column(db.String(100), nullable=True)
+    other_responsibilities = db.Column(db.String(100), nullable=True)
 
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
 
@@ -77,6 +82,7 @@ class Program(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    acronym = db.Column(db.String(10), nullable=True)  # e.g., "EDPA", "BSAD"
 
     # program_courses = db.relationship('ProgramCourse', backref='program', lazy=True)
 
@@ -85,6 +91,7 @@ class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), nullable=False, unique=True)
     title = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=True)  # e.g., 'General', 'Core', 'Elective'
     units = db.Column(db.Integer, nullable=True)
 
     # program_courses = db.relationship('ProgramCourse', backref='course', lazy=True)

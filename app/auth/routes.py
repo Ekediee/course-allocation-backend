@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
-    create_access_token, jwt_required, get_jwt_identity, current_user
+    create_access_token, jwt_required, get_jwt_identity, current_user, set_access_cookies
 )
 from app.models import User
 from app import db
@@ -19,7 +19,7 @@ def login():
         return jsonify({"msg": "Invalid credentials"}), 401
 
     token = create_access_token(identity=str(user.id))
-    return jsonify({
+    resp = jsonify({
         "access_token": token,
         "user": {
             "id": user.id,
@@ -30,7 +30,9 @@ def login():
             "rank": user.lecturer.rank,
             "qualification": user.lecturer.qualification
         }
-    }), 200
+    })
+    set_access_cookies(resp, token)
+    return resp
 
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()

@@ -22,7 +22,7 @@ def create_app():
     from app.models import models  # Import models to register them with SQLAlchemy
 
     migrate.init_app(app, db)
-    CORS(app)
+    CORS(app, supports_credentials=True)  # Enable CORS with credentials support
 
     # Initialize JWT
     jwt.init_app(app)

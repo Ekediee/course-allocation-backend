@@ -13,7 +13,7 @@ allocation_bp = Blueprint('allocations', __name__)
 @allocation_bp.route('/list', methods=['GET'])
 @jwt_required()
 def get_hod_course_allocations():
-    # hod = current_user
+    # ic(current_user)
     department = current_user.lecturer.department
     
     programs = Program.query.filter_by(department_id=department.id).all()
@@ -102,7 +102,7 @@ def allocate_course():
         return jsonify({"error": "Unauthorized: Only HODs can allocate courses."}), 403
 
     data_list = request.get_json()
-    ic(data_list)
+    # ic(data_list)
     # 1. Find active session
     session = AcademicSession.query.filter_by(is_active=True).first()
     if not session:

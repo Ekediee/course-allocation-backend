@@ -47,7 +47,10 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'hod' or 'lecturer'
+    role = db.Column(
+        db.Enum("superadmin", "vetter", "hod", "lecturer", name="user_roles"),
+        nullable=False
+    )  # superadmin, 'hod' or 'lecturer'
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=True)
     
     lecturer_id = db.Column(db.Integer, db.ForeignKey('lecturer.id'), unique=True, nullable=True)

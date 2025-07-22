@@ -1,4 +1,4 @@
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, current_user
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.models import AcademicSession, ProgramCourse, CourseAllocation, User
@@ -6,17 +6,14 @@ from icecream import ic
 
 session_bp = Blueprint('sessions', __name__)
 
-def get_current_user():
-    # Mocked login — replace with real auth in production
-    return User.query.filter_by(email='alloc_admin@babcock.edu.ng').first()
-
 @session_bp.route('/init', methods=['POST'])
 @jwt_required()
 def initialize_session():
-    user = get_current_user()
 
-    if not user or user.role != 'superadmin':
-        return jsonify({'error': 'Only superadmin can initialize sessions.'}), 403
+    ic(current_user.is_vetter)
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can create sessions"}), 403
 
     data = request.get_json()
     session_name = data.get('name')
@@ -27,16 +24,10 @@ def initialize_session():
         return jsonify({'error': 'Session name is required'}), 400
 
     if AcademicSession.query.filter_by(name=session_name).first():
-        return jsonify({'error': 'Session already exists'}), 400
+        return jsonify({'error': f"Session - '{session_name}' already exists"}), 400
     
-    # Deactivate all previous sessions
-    session_name_first = int(session_name.split('/')[0]) - 1
-    session_name_second = int(session_name.split('/')[1]) - 1
-
-    previous_session = AcademicSession.query.filter_by(name=f"{session_name_first}/{session_name_second}").first()
-    if previous_session:
-        previous_session.is_active = False
-        db.session.commit()
+     # Deactivate current active sessions
+    AcademicSession.query.update({AcademicSession.is_active: False})
     
     # Create new session
     new_session = AcademicSession(name=session_name, is_active=True)
@@ -63,4 +54,30 @@ def initialize_session():
     #     db.session.add(new_alloc)
 
     db.session.commit()
-    return jsonify({'message': f"Session '{session_name}' initialized by superadmin."}), 201
+    # return jsonify({'message': f"Session '{session_name}' initialized by superadmin."}), 201
+    return jsonify({
+        "msg": f"Session '{session_name}' created and activated successfully",
+        "session": {
+            "id": new_session.id,
+            "name": new_session.name,
+            "is_active": new_session.is_active
+        }
+    }), 201
+
+
+@session_bp.route('/active', methods=['GET'])
+@jwt_required()
+def get_session():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can fetch sessions"}), 403
+
+    current_session = AcademicSession.query.filter_by(is_active=True).first()
+    
+    return jsonify({
+        "session": [{
+            "id": current_session.id,
+            "name": current_session.name,
+            "is_active": current_session.is_active
+        }]
+    }), 200

@@ -14,23 +14,54 @@ def login():
     password = data.get('password')
 
     user = User.query.filter_by(email=email).first()
-    print(f"User found: {user.email}")
+   
     if not user or not user.check_password(password):
         return jsonify({"msg": "Invalid credentials"}), 401
 
+    # Generate access token
     token = create_access_token(identity=str(user.id))
-    resp = jsonify({
-        "access_token": token,
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "role": user.role,
-            "department": user.lecturer.department.name,
+
+    # Build user info dynamically
+    user_info = {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+    }
+
+    # If user is a lecturer (e.g. hod or lecturer), update info with department, randk, and qualification
+    if user.lecturer:
+        user_info.update({
+            "department": user.lecturer.department.name if user.lecturer.department else None,
             "rank": user.lecturer.rank,
             "qualification": user.lecturer.qualification
-        }
+        })
+    else:
+        user_info.update({
+            "department": None,
+            "rank": None,
+            "qualification": None
+        })
+
+    # Build the response
+    resp = jsonify({
+        "access_token": token,
+        "user": user_info
     })
+
+    # resp = jsonify({
+    #     "access_token": token,
+    #     "user": {
+    #         "id": user.id,
+    #         "name": user.name,
+    #         "email": user.email,
+    #         "role": user.role,
+    #         "department": user.lecturer.department.name,
+    #         "rank": user.lecturer.rank,
+    #         "qualification": user.lecturer.qualification
+    #     }
+    # })
+
     set_access_cookies(resp, token)
     return resp
 

@@ -30,11 +30,17 @@ def create_app():
     # Import and register blueprints here
     from app.auth.routes import auth_bp
     from app.routes.session_routes import session_bp
+    from app.routes.semester_routes import semester_bp
+    from app.routes.school_routes import school_bp
+    from app.routes.bulletin_route import bulletin_bp
     from app.routes.allocation_routes import allocation_bp
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(session_bp, url_prefix='/api/v1/sessions')
+    app.register_blueprint(semester_bp, url_prefix='/api/v1/semesters')
+    app.register_blueprint(school_bp, url_prefix='/api/v1/schools')
+    app.register_blueprint(bulletin_bp, url_prefix='/api/v1/bulletins')
     app.register_blueprint(allocation_bp, url_prefix='/api/v1/allocation')
 
     return app

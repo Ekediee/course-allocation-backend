@@ -39,7 +39,7 @@ def create_school():
         "bulletin": {
             "id": new_school.id,
             "name": new_school.name,
-            "start_year": new_school.acronym
+            "acronym": new_school.acronym
         }
     }), 201
 
@@ -62,3 +62,49 @@ def get_schools():
             } for school in schools
         ]
     }), 200
+
+@school_bp.route('/lists', methods=['GET'])
+@jwt_required()
+def get_schools_names():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can fetch schools"}), 403
+
+    schools = School.query.order_by(School.id).all()
+    
+    return jsonify({
+        "schools": [
+            {
+                "id": school.id,
+                "name": school.name,
+            } for school in schools
+        ]
+    }), 200
+
+@school_bp.route('/batch', methods=['POST'])
+@jwt_required()
+def batch_upload():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized – Only superadmin can create schools"}), 403
+    
+    data = request.get_json()
+
+    print("Received data for batch upload:", data)
+    schools = data.get('schools', [])
+
+    created = []
+    for schl in schools:
+        name = schl.get('name')
+        acronym = schl.get('acronym')
+        if name and acronym:
+            school = School(name=name, acronym=acronym)
+            db.session.add(school)
+            created.append(name)
+
+    db.session.commit()
+
+    return jsonify({
+        "message": f"Successfully uploaded {len(created)} schools.",
+        "schools_created": created
+    })

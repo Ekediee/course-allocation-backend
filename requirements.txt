@@ -6,3 +6,4 @@ python-dotenv
 PyMySQL
 Flask-JWT-Extended
 flask-bcrypt
+pytest

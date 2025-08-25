@@ -4,7 +4,7 @@ from app import db
 from app.models import (
     Program, ProgramCourse, 
     CourseAllocation, Semester, Level, 
-    Lecturer, AcademicSession, User
+    Lecturer, AcademicSession, User, Specialization
 )
 from icecream import ic
 
@@ -39,7 +39,7 @@ def get_hod_course_allocations():
             for level_row in level_ids:
                 # level = level_row.level
                 level_id = level_row.level_id
-                level = Level.query.get(level_id)
+                level = db.session.get(Level, level_id)
 
                 level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
                 
@@ -106,7 +106,7 @@ def allocate_course():
     # 1. Find active session
     session = AcademicSession.query.filter_by(is_active=True).first()
     if not session:
-        return jsonify({"error": "No active academic session found."}), 400
+        return jsonify({"error": "No active academic session found."}),
     
     results = []
 
@@ -186,3 +186,93 @@ def allocate_course():
         "status": "success",
         "message": "Course allocated successfully",
     }), 201
+
+@allocation_bp.route('/list-by-specialization', methods=['GET'])
+@jwt_required()
+def get_hod_allocations_by_specialization():
+    """
+    Gets all course allocations for the HOD's department, organized by
+    semester, program, level, and specialization.
+    """
+    if not current_user or not current_user.is_hod:
+        return jsonify({'msg': 'Access denied. Only HODs can view this data.'}), 403
+
+    department = current_user.lecturer.department
+    programs = Program.query.filter_by(department_id=department.id).all()
+    semesters = Semester.query.all()
+
+    output = []
+    for semester in semesters:
+        semester_data = {"id": semester.id, "name": semester.name, "programs": []}
+
+        for program in programs:
+            program_data = {"id": program.id, "name": program.name, "levels": []}
+
+            level_ids = db.session.query(ProgramCourse.level_id)\
+                .filter_by(program_id=program.id)\
+                .distinct().all()
+
+            for level_id_tuple in level_ids:
+                level_id = level_id_tuple[0]
+                level = db.session.get(Level, level_id)
+                level_data = {"id": str(level.id), "name": f"{level.name} Level", "specializations": []}
+
+                # Get all program courses for this level
+                program_courses = ProgramCourse.query.filter_by(
+                    program_id=program.id, level_id=level.id
+                ).all()
+
+                general_courses = []
+                specialization_courses = {} # Key: specialization_id, Value: list of courses
+
+                for pc in program_courses:
+                    allocation = CourseAllocation.query.filter_by(
+                        program_course_id=pc.id, semester_id=semester.id
+                    ).first()
+                    
+                    lecturer_name = None
+                    if allocation and allocation.lecturer_profile and allocation.lecturer_profile.user_account[0].name:
+                        lecturer_name = allocation.lecturer_profile.user_account[0].name
+
+                    course_details = {
+                        "id": str(pc.course.id),
+                        "code": pc.course.code,
+                        "title": pc.course.title,
+                        "unit": pc.course.units,
+                        "isAllocated": bool(allocation),
+                        "allocatedTo": lecturer_name
+                    }
+
+                    if not pc.specializations:
+                        general_courses.append(course_details)
+                    else:
+                        for spec in pc.specializations:
+                            if spec.id not in specialization_courses:
+                                specialization_courses[spec.id] = {
+                                    "id": spec.id,
+                                    "name": spec.name,
+                                    "courses": []
+                                }
+                            specialization_courses[spec.id]["courses"].append(course_details)
+                
+                # Add the "General" category if it has courses
+                if general_courses:
+                    level_data["specializations"].append({
+                        "id": "general",
+                        "name": "General",
+                        "courses": general_courses
+                    })
+                
+                # Add the specialization categories
+                level_data["specializations"].extend(specialization_courses.values())
+                
+                if level_data["specializations"]:
+                    program_data["levels"].append(level_data)
+
+            if program_data["levels"]:
+                semester_data["programs"].append(program_data)
+        
+        if semester_data["programs"]:
+            output.append(semester_data)
+
+    return jsonify(output)

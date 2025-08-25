@@ -1,9 +1,16 @@
-from app import db
+from app.extensions import db
 from datetime import datetime, timezone
 # from werkzeug.security import generate_password_hash, check_password_hash
 from flask_bcrypt import Bcrypt
 
 bcrypt = Bcrypt()
+
+# Association table for the many-to-many relationship
+# between ProgramCourse and Specialization
+program_course_specializations = db.Table('program_course_specializations',
+    db.Column('program_course_id', db.Integer, db.ForeignKey('program_course.id'), primary_key=True),
+    db.Column('specialization_id', db.Integer, db.ForeignKey('specialization.id'), primary_key=True)
+)
 
 class School(db.Model):
     __tablename__ = 'school'
@@ -87,7 +94,15 @@ class Program(db.Model):
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
     acronym = db.Column(db.String(10), nullable=True)  # e.g., "EDPA", "BSAD"
 
-    # program_courses = db.relationship('ProgramCourse', backref='program', lazy=True)
+    # Relationship to Specialization
+    specializations = db.relationship('Specialization', backref='program', lazy=True, cascade="all, delete-orphan")
+
+
+class Specialization(db.Model):
+    __tablename__ = 'specialization'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    program_id = db.Column(db.Integer, db.ForeignKey('program.id'), nullable=False)
 
 
 class Course(db.Model):
@@ -97,8 +112,6 @@ class Course(db.Model):
     type = db.Column(db.String(50), nullable=True)  # e.g., 'General', 'Core', 'Elective'
     units = db.Column(db.Integer, nullable=True)
 
-    # program_courses = db.relationship('ProgramCourse', backref='course', lazy=True)
-
 
 class Semester(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -106,25 +119,11 @@ class Semester(db.Model):
 
     allocations = db.relationship('CourseAllocation', backref='semester', lazy=True)
 
-    # program_courses = db.relationship('ProgramCourse', backref='semester', lazy=True)
-
 
 class Level(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), nullable=False, unique=True)
 
-    # program_courses = db.relationship('ProgramCourse', backref='level', lazy=True)
-
-
-# class ProgramCourse(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     program_id = db.Column(db.Integer, db.ForeignKey('program.id'), nullable=False)
-#     course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-#     semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'), nullable=False)
-#     level_id = db.Column(db.Integer, db.ForeignKey('level.id'), nullable=False)
-#     units = db.Column(db.Integer, nullable=False)
-
-#     course_allocations = db.relationship('CourseAllocation', backref='program_course', lazy=True)
 
 class ProgramCourse(db.Model):
     __tablename__ = 'program_course'
@@ -154,6 +153,10 @@ class ProgramCourse(db.Model):
         cascade='all, delete-orphan',
         lazy=True
     )
+    
+    # Relationship to Specialization
+    specializations = db.relationship('Specialization', secondary=program_course_specializations,
+                                      lazy='subquery', backref=db.backref('program_courses', lazy=True))
 
 
 class AcademicSession(db.Model):

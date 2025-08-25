@@ -1,31 +1,36 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
-from .config import Config
+from .config import config
 # from flask_jwt_extended import JWTManager
 from flask_bcrypt import Bcrypt
+from app.models import models
 from .jwt_config import jwt
+from .extensions import db
 
-db = SQLAlchemy()
 migrate = Migrate()
 # jwt = JWTManager()
 
-def create_app():
+def create_app(config_name='default'):
     app = Flask(__name__)
-    app.json.sort_keys = False  # Ensure JSON keys are not sorted, preserving order
+    app.json.sort_keys = False
     
     bcrypt = Bcrypt(app)
-    app.config.from_object(Config)
+    app.config.from_object(config[config_name])
 
     db.init_app(app)
-    from app.models import models  # Import models to register them with SQLAlchemy
 
     migrate.init_app(app, db)
     CORS(app, supports_credentials=True)  # Enable CORS with credentials support
 
     # Initialize JWT
     jwt.init_app(app)
+
+    # Explicitly set JWT config after init_app for testing
+    if config_name == 'testing': # Apply only for testing config
+        app.config['JWT_TOKEN_LOCATION'] = ["headers"]
+        app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+        app.config['JWT_COOKIE_SECURE'] = False
 
     # Import and register blueprints here
     from app.auth.routes import auth_bp

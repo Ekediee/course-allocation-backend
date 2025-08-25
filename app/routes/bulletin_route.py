@@ -69,3 +69,21 @@ def get_bulletin():
             } for bulletin in bulletins
         ]
     }), 200
+
+@bulletin_bp.route('/list/name', methods=['GET'])
+@jwt_required()
+def get_bulletin_by_name():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can fetch bulletins"}), 403
+
+    bulletins = Bulletin.query.order_by(Bulletin.id).all()
+    
+    return jsonify({
+        "bulletins": [
+            {
+                "id": bulletin.id,
+                "name": bulletin.name
+            } for bulletin in bulletins
+        ]
+    }), 200

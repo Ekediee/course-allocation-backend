@@ -72,8 +72,29 @@ def get_departments_names():
 
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch departments"}), 403
-
+    
     departments = Department.query.order_by(Department.id).all()
+    
+    return jsonify({
+        "departments": [
+            {
+                "id": department.id,
+                "name": department.name,
+            } for department in departments
+        ]
+    }), 200
+
+@department_bp.route('/names/list', methods=['POST'])
+@jwt_required()
+def get_departments_names_by_school():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can fetch departments"}), 403
+
+    data = request.get_json()
+    school_id = data.get('school_id')
+    
+    departments = Department.query.filter_by(school_id=school_id).all()
     
     return jsonify({
         "departments": [

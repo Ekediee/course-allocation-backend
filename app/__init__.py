@@ -31,8 +31,10 @@ def create_app():
     from app.auth.routes import auth_bp
     from app.routes.session_routes import session_bp
     from app.routes.semester_routes import semester_bp
+    from app.routes.level_route import level_bp
     from app.routes.school_routes import school_bp
     from app.routes.department_routes import department_bp
+    from app.routes.program_routes import program_bp
     from app.routes.bulletin_route import bulletin_bp
     from app.routes.allocation_routes import allocation_bp
 
@@ -40,8 +42,10 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(session_bp, url_prefix='/api/v1/sessions')
     app.register_blueprint(semester_bp, url_prefix='/api/v1/semesters')
+    app.register_blueprint(level_bp, url_prefix='/api/v1/levels')
     app.register_blueprint(school_bp, url_prefix='/api/v1/schools')
     app.register_blueprint(department_bp, url_prefix='/api/v1/departments')
+    app.register_blueprint(program_bp, url_prefix='/api/v1/programs')
     app.register_blueprint(bulletin_bp, url_prefix='/api/v1/bulletins')
     app.register_blueprint(allocation_bp, url_prefix='/api/v1/allocation')
 

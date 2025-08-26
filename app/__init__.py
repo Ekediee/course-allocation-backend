@@ -42,10 +42,14 @@ def create_app(config_name='default'):
     from app.routes.program_routes import program_bp
     from app.routes.bulletin_route import bulletin_bp
     from app.routes.allocation_routes import allocation_bp
+    from app.routes.specialization_routes import specialization_bp
+    from app.routes.course_routes import course_bp
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(session_bp, url_prefix='/api/v1/sessions')
+    app.register_blueprint(specialization_bp, url_prefix='/api/v1/specializations')
+    app.register_blueprint(course_bp, url_prefix='/api/v1/courses')
     app.register_blueprint(semester_bp, url_prefix='/api/v1/semesters')
     app.register_blueprint(level_bp, url_prefix='/api/v1/levels')
     app.register_blueprint(school_bp, url_prefix='/api/v1/schools')

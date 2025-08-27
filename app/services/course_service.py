@@ -1,9 +1,9 @@
 from app import db
 from app.models.models import Course, ProgramCourse, Specialization
-import csv
+from sqlalchemy import desc
 
 def get_all_courses():
-    program_courses = ProgramCourse.query.all()
+    program_courses = ProgramCourse.query.order_by(desc(ProgramCourse.id)).all()
     return program_courses
 
 def create_course(data):
@@ -41,38 +41,39 @@ def create_course(data):
 
     return new_course, None
 
-def batch_create_courses(file, bulletin_id, program_id, semester_id, level_id, specialization_id):
+def batch_create_courses(courses_data):
     created_count = 0
     errors = []
 
-    try:
-        stream = file.stream.read().decode("UTF8")
-        csv_reader = csv.DictReader(stream.splitlines())
-    except Exception as e:
-        return 0, [f"Failed to read CSV file: {e}"]
+    for course_item in courses_data:
+        code = course_item.get('code')
+        title = course_item.get('title')
+        units = course_item.get('unit') # Assuming 'unit' is the key for units in the JSON
+        bulletin_id = course_item.get('bulletin_id')
+        program_id = course_item.get('program_id')
+        semester_id = course_item.get('semester_id')
+        level_id = course_item.get('level_id')
+        specialization_id = course_item.get('specialization_id')
 
-    for row in csv_reader:
-        code = row.get('course_code')
-        title = row.get('course_title')
-        units = row.get('course_unit')
-
-        if not code or not title or not units:
-            errors.append(f"Missing data in row: {row}")
+        # Validation checks
+        if not code or not title or units is None:
+            errors.append(f"Missing 'code', 'title', or 'unit' in record: {course_item}")
             continue
 
         if Course.query.filter_by(code=code).first():
-            errors.append(f'Course with code "{code}" already exists')
+            errors.append(f'Course with code "{code}" already exists,\n')
             continue
 
         try:
             units = int(units)
-        except ValueError:
+        except (ValueError, TypeError):
             errors.append(f"Invalid unit value for course {code}: {units}")
             continue
 
+        # Create Course and ProgramCourse
         new_course = Course(code=code, title=title, units=units)
         db.session.add(new_course)
-        db.session.flush()
+        db.session.flush() # Flush to get the new_course.id
 
         program_course = ProgramCourse(
             course_id=new_course.id,
@@ -90,5 +91,5 @@ def batch_create_courses(file, bulletin_id, program_id, semester_id, level_id, s
         db.session.add(program_course)
         created_count += 1
 
-    db.session.commit()
+    db.session.commit() # Commit once after the loop, similar to specialization_service
     return created_count, errors

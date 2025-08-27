@@ -83,16 +83,33 @@ def test_batch_create_courses(test_client):
     semester = Semester.query.first()
     bulletin = Bulletin.query.first()
 
-    csv_data = "course_code,course_title,course_unit\nCS102,Data Structures,3\nCS201,Algorithms,3"
-    data = {
-        'file': (io.BytesIO(csv_data.encode('utf-8')), 'test.csv'),
-        'program_id': program.id,
-        'level_id': level.id,
-        'semester_id': semester.id,
-        'bulletin_id': bulletin.id
+    # Prepare JSON data for batch creation with IDs embedded in each course
+    json_data = {
+        "courses": [
+            {
+                "code": "CS102",
+                "title": "Data Structures",
+                "unit": 3,
+                "program_id": program.id,
+                "level_id": level.id,
+                "semester_id": semester.id,
+                "bulletin_id": bulletin.id,
+                "specialization_id": None
+            },
+            {
+                "code": "CS201",
+                "title": "Algorithms",
+                "unit": 3,
+                "program_id": program.id,
+                "level_id": level.id,
+                "semester_id": semester.id,
+                "bulletin_id": bulletin.id,
+                "specialization_id": None
+            }
+        ]
     }
 
-    response = test_client.post('/api/v1/courses/batch', data=data, headers=headers, content_type='multipart/form-data')
-    assert response.status_code == 200
+    response = test_client.post('/api/v1/courses/batch', json=json_data, headers=headers)
+    assert response.status_code == 201 # Expect 201 Created
     json_data = response.get_json()
     assert json_data['message'] == "Successfully created 2 courses."

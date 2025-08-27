@@ -68,26 +68,28 @@ def handle_create_course():
 def handle_batch_create_courses():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    courses_data = data.get('courses', [])
+    
+    bulletin_id = courses_data[0].get('bulletin_id')
+    program_id = courses_data[0].get('program_id')
+    semester_id = courses_data[0].get('semester_id')
+    level_id = courses_data[0].get('level_id')
 
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-
-    bulletin_id = request.form.get('bulletin_id')
-    program_id = request.form.get('program_id')
-    semester_id = request.form.get('semester_id')
-    level_id = request.form.get('level_id')
-    specialization_id = request.form.get('specialization_id')
-
+    if not courses_data:
+        return jsonify({'error': 'No courses data provided'}), 400
+    
     if not all([bulletin_id, program_id, semester_id, level_id]):
-        return jsonify({'error': 'Missing required form fields'}), 400
+        return jsonify({'error': 'Missing required fields: bulletin_id, program_id, semester_id, level_id'}), 400
+   
+    created_count, errors = batch_create_courses(courses_data)
 
-    created_count, errors = batch_create_courses(file, bulletin_id, program_id, semester_id, level_id, specialization_id)
-
+    response = {
+        "message": f"Successfully created {created_count} courses."
+    }
     if errors:
-        return jsonify({"message": f"Processed with {len(errors)} errors.", "errors": errors}), 400
+        response["errors"] = errors
+        return jsonify(response), 400
 
-    return jsonify({"message": f"Successfully created {created_count} courses."}), 200
+    return jsonify(response), 201

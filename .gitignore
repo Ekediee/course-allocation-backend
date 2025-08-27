@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # project docs
-
+project_docs/
 
 # C extensions
 *.so

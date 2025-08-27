@@ -1,182 +1,203 @@
 📘 Course Allocation System – Model Documentation & Design Rationale
 This system supports dynamic allocation of courses to lecturers based on academic sessions, departmental structure, curriculum bulletins, and grouping requirements. Below is a model-by-model breakdown with rationale.
 
+🔹 School
+Purpose:
+Represents the largest academic division in the university (e.g., School of Medical Sciences).
+
+Key Fields:
+- `name`: Unique name of the school.
+- `acronym`: A short code for the school (e.g., "SMS").
+
+Relationships:
+- One-to-many with `Department` (a school contains multiple departments).
+
+Why It Matters:
+Provides a high-level organizational structure for academic units.
+
 🔹 Department
 Purpose:
 Represents an academic unit (e.g., Computer Science, Biochemistry) that owns programs and manages lecturers.
 
 Key Fields:
-name: Unique identifier of the department.
+- `name`: Unique name of the department.
+- `acronym`: A short code for the department (e.g., "CS").
+- `school_id`: Links to the `School` it belongs to.
 
 Relationships:
-One-to-many with Program (departments offer programs).
-
-One-to-many with User (lecturers and HODs belong to a department).
+- Many-to-one with `School`.
+- One-to-many with `Program` (departments offer programs).
+- One-to-many with `User` and `Lecturer`.
 
 Why It Matters:
-Enables HOD-level access control and program grouping for allocations.
+Enables HOD-level access control and groups programs and lecturers for allocation.
+
+🔹 Lecturer
+Purpose:
+Stores detailed professional information about a teaching staff member, separate from their user account.
+
+Key Fields:
+- `staff_id`: Unique identifier for the staff member.
+- `rank`: Academic rank (e.g., "Professor", "Lecturer I").
+- `qualification`: Highest academic qualification (e.g., "Ph.D. in Computer Science").
+- `specialization`: Area of research or teaching expertise.
+- `gender`, `phone`, `other_responsibilities`: Additional profile details.
+- `department_id`: Links to the `Department` they belong to.
+
+Relationships:
+- One-to-one with `User` (a lecturer's profile is linked to a single user account).
+- Many-to-one with `Department`.
+- One-to-many with `CourseAllocation`.
+
+Why It Matters:
+Separates login credentials (`User`) from detailed academic profiles (`Lecturer`), allowing for richer data about teaching staff.
+
+🔹 User
+Purpose:
+Represents all system users who can log in: lecturers, HODs, vetters, and superadmins.
+
+Key Fields:
+- `name`, `email`, `password`: User identity and login credentials.
+- `role`: Defines access level.
+- `department_id`: Optional, links user to a department (null for superadmins).
+- `lecturer_id`: Optional, links to a `Lecturer` profile.
+
+Roles Supported:
+- `superadmin`: Global access.
+- `vetter`: Can review and approve certain actions.
+- `hod`: Manages allocations for their department.
+- `lecturer`: Receives and views course allocations.
+
+Relationships:
+- One-to-one with `Lecturer`.
+- Many-to-one with `Department`.
+
+Why It Matters:
+Supports fine-grained, role-based access control (RBAC) and secure authentication.
 
 🔹 Program
 Purpose:
 Defines a degree track (e.g., B.Sc. Computer Science) within a department.
 
 Key Fields:
-name: Full name of the academic program.
-
-department_id: Links to the department offering the program.
+- `name`: Full name of the academic program.
+- `acronym`: A short code for the program (e.g., "CS").
+- `department_id`: Links to the `Department` offering the program.
 
 Relationships:
-Belongs to one Department.
-
-Has many ProgramCourse entries (courses offered under the program).
+- Belongs to one `Department`.
+- Has many `ProgramCourse` entries.
+- One-to-many with `Specialization` (a program can have multiple specializations).
 
 Why It Matters:
 Helps isolate course requirements and allocations at the program level.
+
+🔹 Specialization
+Purpose:
+Represents a specialized area of study within a `Program`, typically starting at a higher level (e.g., 300-Level).
+
+Key Fields:
+- `name`: The name of the specialization (e.g., "Software Engineering", "Data Science").
+- `program_id`: Links the specialization to its parent `Program`.
+
+Relationships:
+- Many-to-one with `Program`.
+- Many-to-many with `ProgramCourse` (a specialization consists of multiple courses, and a course can be in multiple specializations).
+
+Why It Matters:
+Allows the system to model academic programs that diverge into different tracks, each with its own set of required and elective courses.
 
 🔹 Course
 Purpose:
 Represents an academic course (e.g., COSC201 – Data Structures).
 
 Key Fields:
-code, title: Identifiers and labels for the course.
+- `code`, `title`: Unique identifier and full name for the course.
+- `units`: The number of credit units the course is worth.
+- `type`: The category of the course (e.g., 'General', 'Core', 'Elective').
 
 Relationships:
-Linked to ProgramCourse (can be reused across programs).
+- Linked to `ProgramCourse` (can be reused across programs).
 
 Why It Matters:
-Allows course reuse across multiple programs and bulletins.
+Allows course definitions to be reused across multiple programs and bulletins.
 
 🔹 Bulletin
 Purpose:
 Captures curriculum structure for a time-bound period (e.g., 2019–2023).
 
 Key Fields:
-name, start_year, end_year
-
-is_active: Flags the currently used curriculum.
+- `name`, `start_year`, `end_year`: Identifiers for the curriculum period.
+- `is_active`: Flags the currently used curriculum.
 
 Relationships:
-One-to-many with ProgramCourse.
+- One-to-many with `ProgramCourse`.
 
 Why It Matters:
-Allows course offerings to be tracked historically and reused as “special allocations” from past bulletins.
+Allows course offerings to be versioned and tracked historically. Enables "special allocations" from past bulletins.
 
-🔹 Semester
+🔹 Semester & Level
 Purpose:
-Defines academic periods (e.g., First Semester, Second Semester).
+Define academic periods (`Semester`) and student year groups (`Level`).
 
 Key Fields:
-name: Unique name of the semester.
+- `name`: Unique identifier (e.g., "First Semester", "100L").
 
 Relationships:
-Used by ProgramCourse.
+- Both are used in `ProgramCourse` to define when a course is offered and for which student level.
 
 Why It Matters:
-Used to organize course offerings by semester, and filter allocations accordingly.
-
-🔹 Level
-Purpose:
-Captures student levels (e.g., 100L, 200L, 300L).
-
-Key Fields:
-name: Level label (unique).
-
-Relationships:
-Used in ProgramCourse.
-
-Why It Matters:
-Enables level-specific filtering for allocations and program structuring.
+Enables filtering and organization of courses for allocation.
 
 🔹 ProgramCourse
 Purpose:
-Represents a course offering under a specific program, semester, level, and bulletin.
+The central link model. Represents a specific course offering under a program, for a given level, semester, and curriculum bulletin.
 
 Key Fields:
-program_id, course_id, semester_id, level_id, bulletin_id
-
-units: Credit units of the course
-
-grouping_enabled: Whether the course can be split into groups for allocation
+- `program_id`, `course_id`, `level_id`, `semester_id`, `bulletin_id`
 
 Relationships:
-Belongs to Program, Course, Semester, Level, and Bulletin
-
-One-to-many with CourseAllocation
+- Belongs to `Program`, `Course`, `Semester`, `Level`, and `Bulletin`.
+- One-to-many with `CourseAllocation`.
+- Many-to-many with `Specialization` (a course offering can be part of one or more specializations).
 
 Why It Matters:
-This model is the core link that defines where, when, and under which curriculum a course exists — enabling reuse, versioning, and allocation per session.
+This model is the core that defines *where*, *when*, and *under which curriculum* a course exists, enabling reuse, versioning, and allocation per session.
 
 🔹 AcademicSession
 Purpose:
 Represents an academic session (e.g., 2024/2025) during which allocations occur.
 
 Key Fields:
-name, is_active: Session identifier and flag
+- `name`, `is_active`: Session identifier and flag.
 
 Relationships:
-One-to-many with CourseAllocation
+- One-to-many with `CourseAllocation`.
 
 Why It Matters:
 Enables session-based allocation tracking and historical views of who taught what, when.
 
-🔹 User
-Purpose:
-Represents all system users: lecturers, HODs, and superadmins.
-
-Key Fields:
-name, email, role: User identity and access level
-
-department_id: Optional, null for superadmins
-
-Roles Supported:
-superadmin: Global access, can initialize sessions
-
-hod: Manages allocations for their department
-
-lecturer: Receives course allocations
-
-Relationships:
-One-to-many with CourseAllocation
-
-Why It Matters:
-Supports fine-grained, role-based access and lecturer-course assignments.
-
 🔹 CourseAllocation
 Purpose:
-Defines the actual allocation of a lecturer to a course (optionally to a group within the course) for a session.
+Defines the actual assignment of a lecturer to a course for a specific session.
 
 Key Fields:
-program_course_id, session_id, lecturer_id
-
-group_name: Optional (e.g., "Group A", null if no groups)
-
-is_lead: Flags the main lecturer among grouped allocations
-
-is_special_allocation: True if the course was selected from a previous bulletin
-
-source_bulletin_id: Points to the bulletin the course was pulled from
+- `program_course_id`, `session_id`, `semester_id`, `lecturer_id`: The core allocation links.
+- `group_name`: Optional, for splitting a course into groups (e.g., "Group A").
+- `is_lead`: Flags the main lecturer among grouped allocations.
+- `is_allocated`: A boolean flag indicating if the allocation is confirmed.
+- `class_size`: The number of students in the course or group.
+- `is_special_allocation`: True if the course was pulled from a past bulletin.
+- `source_bulletin_id`: Points to the bulletin the special course was pulled from.
 
 Constraints:
-Composite uniqueness: (program_course_id, session_id, group_name) ensures no group duplication
+- Composite uniqueness on `(program_course_id, session_id, group_name)` ensures no group duplication per session.
 
 Why It Matters:
-Tracks actual delivery of courses — including:
-
-Multi-lecturer support
-
-Special allocations from previous bulletins
-
-Group-based assignments
-
-Lead lecturer designation
+Tracks the actual delivery of courses, supporting multi-lecturer assignments, group-based teaching, and special allocations.
 
 ✅ Conclusion: System Strengths
 🔁 Curriculum Versioning: Bulletins allow for flexible, historical curriculum tracking.
-
 👥 Lecturer Grouping: Supports team-teaching and group splitting for large classes.
-
 📊 Session-Based Allocation: Keeps history of each academic year cleanly organized.
-
 🧱 Role-Based Access: Differentiates between admin, HODs, and lecturers.
-
-🔄 Allocation Reuse: Facilitates copying from previous sessions when needed.

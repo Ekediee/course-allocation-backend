@@ -16,3 +16,16 @@ class Config:
     # Optional: CSRF protection (good to use in production)
     JWT_COOKIE_CSRF_PROTECT = False  # You can turn it on if needed
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=2)
+
+class TestingConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    JWT_SECRET_KEY = 'super-secret-testing-key'
+    JWT_COOKIE_CSRF_PROTECT = False
+    JWT_TOKEN_LOCATION = ["headers"]
+
+config = {
+    'development': Config,
+    'testing': TestingConfig,
+    'default': Config
+}

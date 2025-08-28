@@ -74,3 +74,10 @@ To ensure the project's quality and maintainability are continuously improved, a
 
 *   **Guideline:** The codebase should be clean and free of temporary debugging artifacts.
 *   **Action:** Before committing any changes, remove all debugging statements, including `print()` and `ic()` (icecream). Use a linter to help identify and remove them.
+
+## Additional - Very important instructions
+
+You need to adhere to these instructions for every contributions you will make to this projects development.
+- For every prompt - always show me your plan on how you intend to implement a solution for solving the problem, and ask for my approval before proceeding.
+- When there is need to make code changes or persist code to file, always ask me to review your code and give you permission before writing any code to file.
+- Take up the habit of always asking questions to clarify issues before making any decision, I don't want you to make decisions for me - ask me first so that I can approve of your choices.

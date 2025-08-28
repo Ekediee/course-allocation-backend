@@ -26,6 +26,11 @@ def create_app(config_name='default'):
     # Initialize JWT
     jwt.init_app(app)
 
+    @jwt.user_lookup_loader
+    def user_lookup_loader(_jwt_header, jwt_data):
+        identity = jwt_data["sub"]
+        return db.session.get(models.User, int(identity))
+
     # Explicitly set JWT config after init_app for testing
     if config_name == 'testing': # Apply only for testing config
         app.config['JWT_TOKEN_LOCATION'] = ["headers"]
@@ -44,6 +49,7 @@ def create_app(config_name='default'):
     from app.routes.allocation_routes import allocation_bp
     from app.routes.specialization_routes import specialization_bp
     from app.routes.course_routes import course_bp
+    from app.routes.user_routes import user_bp
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
@@ -57,5 +63,6 @@ def create_app(config_name='default'):
     app.register_blueprint(program_bp, url_prefix='/api/v1/programs')
     app.register_blueprint(bulletin_bp, url_prefix='/api/v1/bulletins')
     app.register_blueprint(allocation_bp, url_prefix='/api/v1/allocation')
+    app.register_blueprint(user_bp, url_prefix='/api/v1/users')
 
     return app

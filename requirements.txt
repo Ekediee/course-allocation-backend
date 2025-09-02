@@ -7,3 +7,4 @@ PyMySQL
 Flask-JWT-Extended
 flask-bcrypt
 pytest
+Flask-Mail

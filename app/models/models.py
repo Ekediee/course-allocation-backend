@@ -32,6 +32,7 @@ class Department(db.Model):
     programs = db.relationship('Program', backref='department', lazy=True)
     users = db.relationship('User', backref='department', lazy=True)
     lecturers = db.relationship('Lecturer', backref='department', lazy=True)
+    admin_users = db.relationship('AdminUser', backref='department', lazy=True)
 
 
 class Lecturer(db.Model):
@@ -50,19 +51,31 @@ class Lecturer(db.Model):
 
     allocations = db.relationship('CourseAllocation', backref='lecturer_profile', lazy=True)
 
+
+class AdminUser(db.Model):
+    __tablename__ = 'admin_user'
+
+    id = db.Column(db.Integer, primary_key=True)
+    gender = db.Column(db.String(50), nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     role = db.Column(
-        db.Enum("superadmin", "vetter", "hod", "lecturer", name="user_roles"),
+        db.Enum("superadmin", "admin", "vetter", "hod", "lecturer", name="user_roles"),
         nullable=False
     )  # superadmin, 'hod' or 'lecturer'
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=True)
     
     lecturer_id = db.Column(db.Integer, db.ForeignKey('lecturer.id'), unique=True, nullable=True)
+    admin_user_id = db.Column(db.Integer, db.ForeignKey('admin_user.id'), unique=True, nullable=True)
     password = db.Column(db.String(128), nullable=True)
     lecturer = db.relationship('Lecturer', backref='user_account', uselist=False)
+    admin_user = db.relationship('AdminUser', backref='user_account', uselist=False)
 
     @property
     def is_hod(self):
@@ -71,6 +84,10 @@ class User(db.Model):
     @property
     def is_superadmin(self):
         return self.role == 'superadmin'
+    
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
     
     @property
     def is_vetter(self):

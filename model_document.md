@@ -27,7 +27,7 @@ Key Fields:
 Relationships:
 - Many-to-one with `School`.
 - One-to-many with `Program` (departments offer programs).
-- One-to-many with `User` and `Lecturer`.
+- One-to-many with `User`, `Lecturer`, and `AdminUser`.
 
 Why It Matters:
 Enables HOD-level access control and groups programs and lecturers for allocation.
@@ -52,24 +52,42 @@ Relationships:
 Why It Matters:
 Separates login credentials (`User`) from detailed academic profiles (`Lecturer`), allowing for richer data about teaching staff.
 
+🔹 AdminUser
+Purpose:
+Stores detailed information about an admin staff member, separate from their user account.
+
+Key Fields:
+- `gender`, `phone`: Additional profile details.
+- `department_id`: Links to the `Department` they belong to.
+
+Relationships:
+- One-to-one with `User` (an admin's profile is linked to a single user account).
+- Many-to-one with `Department`.
+
+Why It Matters:
+Separates login credentials (`User`) from detailed admin profiles (`AdminUser`), allowing for richer data about administrative staff.
+
 🔹 User
 Purpose:
-Represents all system users who can log in: lecturers, HODs, vetters, and superadmins.
+Represents all system users who can log in: lecturers, HODs, vetters, admins, and superadmins.
 
 Key Fields:
 - `name`, `email`, `password`: User identity and login credentials.
 - `role`: Defines access level.
 - `department_id`: Optional, links user to a department (null for superadmins).
 - `lecturer_id`: Optional, links to a `Lecturer` profile.
+- `admin_user_id`: Optional, links to an `AdminUser` profile.
 
 Roles Supported:
 - `superadmin`: Global access.
+- `admin`: Can manage system settings and data.
 - `vetter`: Can review and approve certain actions.
 - `hod`: Manages allocations for their department.
 - `lecturer`: Receives and views course allocations.
 
 Relationships:
 - One-to-one with `Lecturer`.
+- One-to-one with `AdminUser`.
 - Many-to-one with `Department`.
 
 Why It Matters:

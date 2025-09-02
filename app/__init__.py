@@ -6,7 +6,7 @@ from .config import config
 from flask_bcrypt import Bcrypt
 from app.models import models
 from .jwt_config import jwt
-from .extensions import db
+from .extensions import db, mail
 
 migrate = Migrate()
 # jwt = JWTManager()
@@ -19,6 +19,7 @@ def create_app(config_name='default'):
     app.config.from_object(config[config_name])
 
     db.init_app(app)
+    mail.init_app(app)
 
     migrate.init_app(app, db)
     CORS(app, supports_credentials=True)  # Enable CORS with credentials support
@@ -50,6 +51,7 @@ def create_app(config_name='default'):
     from app.routes.specialization_routes import specialization_bp
     from app.routes.course_routes import course_bp
     from app.routes.user_routes import user_bp
+    from app.routes.admin_user_routes import admin_user_bp
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
@@ -64,5 +66,6 @@ def create_app(config_name='default'):
     app.register_blueprint(bulletin_bp, url_prefix='/api/v1/bulletins')
     app.register_blueprint(allocation_bp, url_prefix='/api/v1/allocation')
     app.register_blueprint(user_bp, url_prefix='/api/v1/users')
+    app.register_blueprint(admin_user_bp)
 
     return app

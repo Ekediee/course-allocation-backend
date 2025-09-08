@@ -27,13 +27,13 @@ def handle_create_admin_user():
     
     if data['role'] not in ['admin', 'vetter', 'superadmin']:
         return jsonify({'error': 'Invalid role specified'}), 400
-    print("admin user data:", data)
-    new_user, error = create_admin_user(data)
+    
+    new_user, password, error = create_admin_user(data)
     if error:
         return jsonify({'error': error}), 400
         
     return jsonify({
-        "msg": "User created successfully",
+        "msg": f"User created successfully - temporary password is {password}",
         "user": new_user
     }), 201
 

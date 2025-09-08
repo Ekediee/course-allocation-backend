@@ -10,8 +10,6 @@ bulletin_bp = Blueprint('bulletins', __name__)
 @jwt_required()
 def create_bulletin():
 
-    ic(current_user.is_vetter)
-
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can create bulletins"}), 403
 
@@ -74,7 +72,7 @@ def get_bulletin():
 @jwt_required()
 def get_bulletin_by_name():
 
-    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter or current_user.is_hod):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch bulletins"}), 403
 
     bulletins = Bulletin.query.order_by(Bulletin.id).all()

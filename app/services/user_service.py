@@ -33,7 +33,6 @@ def create_user(data):
     """
     from icecream import ic
 
-    ic(data)
     try:
         lecturer_id = None
         if data.get('role') in ['lecturer', 'hod']:

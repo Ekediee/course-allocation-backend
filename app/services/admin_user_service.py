@@ -102,7 +102,7 @@ def create_admin_user(data):
             'phone': admin_profile.phone,
             'department': department.name if department else None
         }
-        return user_data, None
+        return user_data, password, None
     except IntegrityError:
         db.session.rollback()
         return None, "Database integrity error."

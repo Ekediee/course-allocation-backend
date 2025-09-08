@@ -205,14 +205,14 @@ Key Fields:
 - `is_lead`: Flags the main lecturer among grouped allocations.
 - `is_allocated`: A boolean flag indicating if the allocation is confirmed.
 - `class_size`: The number of students in the course or group.
-- `is_special_allocation`: True if the course was pulled from a past bulletin.
+- `is_de_allocation`: True if the allocation is a direct entry allocation.
 - `source_bulletin_id`: Points to the bulletin the special course was pulled from.
 
 Constraints:
 - Composite uniqueness on `(program_course_id, session_id, group_name)` ensures no group duplication per session.
 
 Why It Matters:
-Tracks the actual delivery of courses, supporting multi-lecturer assignments, group-based teaching, and special allocations.
+Tracks the actual delivery of courses, supporting multi-lecturer assignments, group-based teaching, and DE allocations.
 
 ✅ Conclusion: System Strengths
 🔁 Curriculum Versioning: Bulletins allow for flexible, historical curriculum tracking.

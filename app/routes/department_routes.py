@@ -10,8 +10,6 @@ department_bp = Blueprint('departments', __name__)
 @jwt_required()
 def create_department():
 
-    ic(current_user.is_vetter)
-
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can create departments"}), 403
 
@@ -134,7 +132,7 @@ def batch_upload():
     
     data = request.get_json()
 
-    print("Received data for batch upload:", data)
+    
     departments = data.get('departments', [])
 
     created = []

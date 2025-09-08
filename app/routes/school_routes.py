@@ -10,8 +10,6 @@ school_bp = Blueprint('schools', __name__)
 @jwt_required()
 def create_school():
 
-    ic(current_user.is_vetter)
-
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can create schools"}), 403
 
@@ -108,7 +106,7 @@ def batch_upload():
     
     data = request.get_json()
 
-    print("Received data for batch upload:", data)
+    
     schools = data.get('schools', [])
 
     created = []

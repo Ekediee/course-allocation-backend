@@ -7,4 +7,4 @@ for user in users:
         user.set_password("defaultd123")
 db.session.commit()
 
-print("All users updated with default passwords.")
+

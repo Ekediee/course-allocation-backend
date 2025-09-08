@@ -10,8 +10,6 @@ school_bp = Blueprint('schools', __name__)
 @jwt_required()
 def create_school():
 
-    ic(current_user.is_vetter)
-
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can create schools"}), 403
 
@@ -51,7 +49,7 @@ def get_schools():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch schools"}), 403
 
-    schools = School.query.order_by(School.id).all()
+    schools = School.query.order_by(School.id).filter(School.acronym.notin_(['SVAD'])).all()
     
     return jsonify({
         "schools": [
@@ -70,7 +68,25 @@ def get_schools_names():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch schools"}), 403
 
-    schools = School.query.order_by(School.id).all()
+    schools = School.query.order_by(School.id).filter(School.acronym.notin_(['SVAD'])).all()
+    
+    return jsonify({
+        "schools": [
+            {
+                "id": school.id,
+                "name": school.name,
+            } for school in schools
+        ]
+    }), 200
+
+@school_bp.route('/lists/admin', methods=['GET'])
+@jwt_required()
+def get_schools_names_admin():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can fetch schools"}), 403
+
+    schools = School.query.order_by(School.id).filter(School.acronym.in_(['SVAD'])).all()
     
     return jsonify({
         "schools": [
@@ -90,7 +106,7 @@ def batch_upload():
     
     data = request.get_json()
 
-    print("Received data for batch upload:", data)
+    
     schools = data.get('schools', [])
 
     created = []

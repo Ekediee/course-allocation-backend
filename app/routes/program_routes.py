@@ -1,7 +1,7 @@
 from flask_jwt_extended import jwt_required, current_user
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models.models import Program
+from app.models.models import Program, Department
 from icecream import ic
 
 program_bp = Blueprint('programs', __name__)
@@ -9,8 +9,6 @@ program_bp = Blueprint('programs', __name__)
 @program_bp.route('/create', methods=['POST'])
 @jwt_required()
 def create_program():
-
-    ic(current_user.is_vetter)
 
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can create programs"}), 403
@@ -50,10 +48,35 @@ def create_program():
 @jwt_required()
 def get_programs():
 
-    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter or current_user.is_hod):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch programs"}), 403
 
     programs = Program.query.order_by(Program.id).all()
+    
+    return jsonify({
+        "programs": [
+            {
+                "id": program.id,
+                "name": program.name,
+                "department": program.department.name,
+                "acronym": program.acronym
+            } for program in programs
+        ]
+    }), 200
+
+@program_bp.route('/department-list', methods=['POST'])
+@jwt_required()
+def get_programs_by_department():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter or current_user.is_hod):
+        return jsonify({"msg": "Unauthorized – Only superadmin can fetch programs"}), 403
+    
+    data = request.get_json()
+    department_name = data.get('department')
+
+    department = Department.query.filter_by(name=department_name).first()
+
+    programs = Program.query.filter_by(department_id=department.id).all()
     
     return jsonify({
         "programs": [
@@ -114,7 +137,7 @@ def batch_upload():
     
     data = request.get_json()
 
-    print("Received data for batch upload:", data)
+    
     programs = data.get('programs', [])
 
     created = []

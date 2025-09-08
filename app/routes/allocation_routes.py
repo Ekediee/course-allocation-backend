@@ -4,7 +4,7 @@ from app import db
 from app.models import (
     Program, ProgramCourse, 
     CourseAllocation, Semester, Level, 
-    Lecturer, AcademicSession, User, Specialization
+    Lecturer, AcademicSession, User, Specialization, Bulletin
 )
 from icecream import ic
 
@@ -13,7 +13,7 @@ allocation_bp = Blueprint('allocations', __name__)
 @allocation_bp.route('/list', methods=['GET'])
 @jwt_required()
 def get_hod_course_allocations():
-    # ic(current_user)
+    
     department = current_user.lecturer.department
     
     programs = Program.query.filter_by(department_id=department.id).all()
@@ -35,13 +35,13 @@ def get_hod_course_allocations():
                 .distinct()
                 .all()
             )
-            # ic(level_ids, semester.id, program.id)
+            
             for level_row in level_ids:
                 # level = level_row.level
                 level_id = level_row.level_id
                 level = db.session.get(Level, level_id)
 
-                level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+                level_data = {"id": str(level.id), "name": f"{level.name.strip('L')} Level", "courses": []}
                 
                 program_courses = ProgramCourse.query.filter_by(
                     program_id=program.id, level_id=level.id
@@ -94,6 +94,13 @@ def get_lecturers_by_department():
 
     return jsonify(data), 200
 
+def is_number(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
 @allocation_bp.route("/allocate", methods=["POST"])
 @jwt_required()
 def allocate_course():
@@ -102,7 +109,7 @@ def allocate_course():
         return jsonify({"error": "Unauthorized: Only HODs can allocate courses."}), 403
 
     data_list = request.get_json()
-    # ic(data_list)
+    
     # 1. Find active session
     session = AcademicSession.query.filter_by(is_active=True).first()
     if not session:
@@ -112,8 +119,17 @@ def allocate_course():
 
     for index, data in enumerate(data_list):
         try:    
-            semester_id = int(data.get("semesterId"))
-            program_id = int(data.get("programId"))
+            if is_number(data.get("semesterId")) is False:
+                semester = Semester.query.filter_by(name=data.get("semesterId")).first()
+                semester_id = semester.id
+            else:
+                semester_id = int(data.get("semesterId"))
+
+            if is_number(data.get("programId")) is False:
+                program = Program.query.filter_by(name=data.get("programId")).first()
+                program_id = program.id
+            else:
+                program_id = int(data.get("programId"))
             level_id = int(data.get("levelId"))
             course_id = int(data.get("courseId"))
             class_size = int(data.get("classSize", 0))
@@ -128,7 +144,7 @@ def allocate_course():
                 level_id=level_id,
                 semester_id=semester_id
             ).first()
-
+            
             if not pc:
                 return jsonify({
                     "status": "error",
@@ -156,7 +172,7 @@ def allocate_course():
 
             if existing:
                 return jsonify({"error": f"Allocation already exists for group '{group_name}'"}), 409
-
+            
             # 5. Create new CourseAllocation
             allocation = CourseAllocation(
                 program_course_id=pc.id,
@@ -164,13 +180,13 @@ def allocate_course():
                 semester_id=semester_id,
                 lecturer_id=lecturer.id,
                 source_bulletin_id=pc.bulletin_id,  # Assuming bulletin_id is available in ProgramCourse
-                is_special_allocation=False,  # Assuming this is a normal allocation
+                is_de_allocation=False,       # Assuming this is a normal allocation
                 group_name=group_name,
                 is_lead=(group_name.lower() == "group a"),
                 is_allocated=is_allocated,
                 class_size=class_size
             )
-
+            
             db.session.add(allocation)
             results.append({
                 "index": index,
@@ -274,5 +290,75 @@ def get_hod_allocations_by_specialization():
         
         if semester_data["programs"]:
             output.append(semester_data)
+
+    return jsonify(output)
+
+@allocation_bp.route('/courses-by-bulletin', methods=['POST'])
+@jwt_required()
+def get_courses_for_allocation_by_bulletin():
+    """
+    Fetches courses for a specific program, semester, and bulletin,
+    organized by level, for the purpose of allocation.
+    """
+    # 1. Authorization: Ensure user is HOD
+    if not current_user or not current_user.is_hod:
+        return jsonify({'msg': 'Access denied. Only HODs can view this data.'}), 403
+
+    # 2. Get query parameters
+    data = request.get_json()
+    bulletin_name = data.get('bulletin')
+    program_name = data.get('program')
+    semester_name = data.get('semester')
+
+    # # 3. Validate parameters
+    # if not all([bulletin_name, program_name, semester_name]):
+    #     return jsonify({"error": "Missing required query parameters: bulletin_name, program, semester"}), 400
+    
+    
+    # 4. Fetch bulletin from DB
+    bulletin = Bulletin.query.filter_by(name=bulletin_name).first()
+    program = Program.query.filter_by(name=program_name).first()
+    semester = Semester.query.filter_by(name=semester_name).first()
+
+    if not bulletin:
+        return jsonify({"error": f"Bulletin '{bulletin_name}' not found."}), 404
+
+    # 5. Fetch program courses based on criteria
+    program_courses = ProgramCourse.query.filter_by(
+        program_id=program.id,
+        semester_id=semester.id,
+        bulletin_id=bulletin.id
+    ).all()
+
+    # 6. Structure the data by level
+    levels_data = {}
+    for pc in program_courses:
+        level = pc.level
+        course = pc.course
+
+        # get all allocated courses for the semester
+        allocation = CourseAllocation.query.filter_by(
+            program_course_id=pc.id,
+            semester_id=semester.id
+        ).first()
+
+        if level.id not in levels_data:
+            levels_data[level.id] = {
+                "id": str(level.id),
+                "name": f"{level.name.strip("L")} Level",
+                "courses": []
+            }
+
+        levels_data[level.id]["courses"].append({
+            "id": str(course.id),
+            "code": course.code,
+            "title": course.title,
+            "unit": course.units,
+            "isAllocated": bool(allocation),
+            "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
+        })
+
+    # 7. Convert the dictionary to a list for the final output
+    output = list(levels_data.values())
 
     return jsonify(output)

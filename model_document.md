@@ -27,7 +27,7 @@ Key Fields:
 Relationships:
 - Many-to-one with `School`.
 - One-to-many with `Program` (departments offer programs).
-- One-to-many with `User` and `Lecturer`.
+- One-to-many with `User`, `Lecturer`, and `AdminUser`.
 
 Why It Matters:
 Enables HOD-level access control and groups programs and lecturers for allocation.
@@ -52,24 +52,42 @@ Relationships:
 Why It Matters:
 Separates login credentials (`User`) from detailed academic profiles (`Lecturer`), allowing for richer data about teaching staff.
 
+🔹 AdminUser
+Purpose:
+Stores detailed information about an admin staff member, separate from their user account.
+
+Key Fields:
+- `gender`, `phone`: Additional profile details.
+- `department_id`: Links to the `Department` they belong to.
+
+Relationships:
+- One-to-one with `User` (an admin's profile is linked to a single user account).
+- Many-to-one with `Department`.
+
+Why It Matters:
+Separates login credentials (`User`) from detailed admin profiles (`AdminUser`), allowing for richer data about administrative staff.
+
 🔹 User
 Purpose:
-Represents all system users who can log in: lecturers, HODs, vetters, and superadmins.
+Represents all system users who can log in: lecturers, HODs, vetters, admins, and superadmins.
 
 Key Fields:
 - `name`, `email`, `password`: User identity and login credentials.
 - `role`: Defines access level.
 - `department_id`: Optional, links user to a department (null for superadmins).
 - `lecturer_id`: Optional, links to a `Lecturer` profile.
+- `admin_user_id`: Optional, links to an `AdminUser` profile.
 
 Roles Supported:
 - `superadmin`: Global access.
+- `admin`: Can manage system settings and data.
 - `vetter`: Can review and approve certain actions.
 - `hod`: Manages allocations for their department.
 - `lecturer`: Receives and views course allocations.
 
 Relationships:
 - One-to-one with `Lecturer`.
+- One-to-one with `AdminUser`.
 - Many-to-one with `Department`.
 
 Why It Matters:
@@ -187,14 +205,14 @@ Key Fields:
 - `is_lead`: Flags the main lecturer among grouped allocations.
 - `is_allocated`: A boolean flag indicating if the allocation is confirmed.
 - `class_size`: The number of students in the course or group.
-- `is_special_allocation`: True if the course was pulled from a past bulletin.
+- `is_de_allocation`: True if the allocation is a direct entry allocation.
 - `source_bulletin_id`: Points to the bulletin the special course was pulled from.
 
 Constraints:
 - Composite uniqueness on `(program_course_id, session_id, group_name)` ensures no group duplication per session.
 
 Why It Matters:
-Tracks the actual delivery of courses, supporting multi-lecturer assignments, group-based teaching, and special allocations.
+Tracks the actual delivery of courses, supporting multi-lecturer assignments, group-based teaching, and DE allocations.
 
 ✅ Conclusion: System Strengths
 🔁 Curriculum Versioning: Bulletins allow for flexible, historical curriculum tracking.

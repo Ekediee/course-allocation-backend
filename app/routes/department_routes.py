@@ -10,8 +10,6 @@ department_bp = Blueprint('departments', __name__)
 @jwt_required()
 def create_department():
 
-    ic(current_user.is_vetter)
-
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can create departments"}), 403
 
@@ -53,7 +51,27 @@ def get_departments():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch departments"}), 403
 
-    departments = Department.query.order_by(Department.id).all()
+    departments = Department.query.order_by(Department.id).filter(Department.name.notin_(['Registry', 'Academic Planning'])).all()
+    
+    return jsonify({
+        "departments": [
+            {
+                "id": department.id,
+                "name": department.name,
+                "school": department.school.name,
+                "acronym": department.acronym
+            } for department in departments
+        ]
+    }), 200
+
+@department_bp.route('/list/admin', methods=['GET'])
+@jwt_required()
+def get_admin_departments():
+
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can fetch departments"}), 403
+
+    departments = Department.query.order_by(Department.id).filter(Department.name.in_(['Registry', 'Academic Planning'])).all()
     
     return jsonify({
         "departments": [
@@ -114,7 +132,7 @@ def batch_upload():
     
     data = request.get_json()
 
-    print("Received data for batch upload:", data)
+    
     departments = data.get('departments', [])
 
     created = []

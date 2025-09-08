@@ -10,8 +10,6 @@ session_bp = Blueprint('sessions', __name__)
 @jwt_required()
 def initialize_session():
 
-    ic(current_user.is_vetter)
-
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can create sessions"}), 403
 

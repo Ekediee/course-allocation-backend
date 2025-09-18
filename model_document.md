@@ -125,6 +125,19 @@ Relationships:
 Why It Matters:
 Allows the system to model academic programs that diverge into different tracks, each with its own set of required and elective courses.
 
+🔹 CourseType
+Purpose:
+Represents the type of a course (e.g., 'General', 'Core', 'Elective').
+
+Key Fields:
+- `name`: Unique name of the course type.
+
+Relationships:
+- One-to-many with `Course` (a course type can be applied to many courses).
+
+Why It Matters:
+Normalizes course types, ensuring consistency and making them easier to manage.
+
 🔹 Course
 Purpose:
 Represents an academic course (e.g., COSC201 – Data Structures).
@@ -132,10 +145,11 @@ Represents an academic course (e.g., COSC201 – Data Structures).
 Key Fields:
 - `code`, `title`: Unique identifier and full name for the course.
 - `units`: The number of credit units the course is worth.
-- `type`: The category of the course (e.g., 'General', 'Core', 'Elective').
+- `course_type_id`: Links to the `CourseType` of the course.
 
 Relationships:
 - Linked to `ProgramCourse` (can be reused across programs).
+- Many-to-one with `CourseType`.
 
 Why It Matters:
 Allows course definitions to be reused across multiple programs and bulletins.

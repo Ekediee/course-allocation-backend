@@ -40,6 +40,7 @@ def create_app(config_name='default'):
 
     # Import and register blueprints here
     from app.auth.routes import auth_bp
+    from app.auth.umis_login import umis_auth_bp
     from app.routes.session_routes import session_bp
     from app.routes.semester_routes import semester_bp
     from app.routes.level_route import level_bp
@@ -52,9 +53,11 @@ def create_app(config_name='default'):
     from app.routes.course_routes import course_bp
     from app.routes.user_routes import user_bp
     from app.routes.admin_user_routes import admin_user_bp
+    from app.routes.course_type_routes import course_type_bp
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
+    app.register_blueprint(umis_auth_bp, url_prefix='/api/v1/auth/umis')
     app.register_blueprint(session_bp, url_prefix='/api/v1/sessions')
     app.register_blueprint(specialization_bp, url_prefix='/api/v1/specializations')
     app.register_blueprint(course_bp, url_prefix='/api/v1/courses')
@@ -67,5 +70,6 @@ def create_app(config_name='default'):
     app.register_blueprint(allocation_bp, url_prefix='/api/v1/allocation')
     app.register_blueprint(user_bp, url_prefix='/api/v1/users')
     app.register_blueprint(admin_user_bp)
+    app.register_blueprint(course_type_bp, url_prefix='/api/v1/course-types')
 
     return app

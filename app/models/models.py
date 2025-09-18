@@ -122,12 +122,21 @@ class Specialization(db.Model):
     program_id = db.Column(db.Integer, db.ForeignKey('program.id'), nullable=False)
 
 
+class CourseType(db.Model):
+    __tablename__ = 'course_type'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+
+
 class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), nullable=False, unique=True)
     title = db.Column(db.String(255), nullable=False)
-    type = db.Column(db.String(50), nullable=True)  # e.g., 'General', 'Core', 'Elective'
     units = db.Column(db.Integer, nullable=True)
+    course_type_id = db.Column(db.Integer, db.ForeignKey('course_type.id'), nullable=True)
+
+    course_type = db.relationship('CourseType', backref='courses')
 
 
 class Semester(db.Model):

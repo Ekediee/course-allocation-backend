@@ -1,5 +1,6 @@
 from flask_jwt_extended import jwt_required, current_user
 from flask import Blueprint, request, jsonify
+from sqlalchemy import or_
 from app import db
 from app.models import (
     Program, ProgramCourse, 
@@ -41,7 +42,7 @@ def get_hod_course_allocations():
                 level_id = level_row.level_id
                 level = db.session.get(Level, level_id)
 
-                level_data = {"id": str(level.id), "name": f"{level.name.strip('L')} Level", "courses": []}
+                level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
                 
                 program_courses = ProgramCourse.query.filter_by(
                     program_id=program.id, level_id=level.id
@@ -66,6 +67,93 @@ def get_hod_course_allocations():
             semester_data["programs"].append(program_data)
         output.append(semester_data)
     return output
+
+
+@allocation_bp.route('/detailed-list', methods=['GET'])
+@jwt_required()
+def get_detailed_course_list_for_allocation():
+    department = current_user.lecturer.department
+    programs = Program.query.filter_by(department_id=department.id).all()
+    semesters = Semester.query.all()
+
+    # Pre-fetch semester objects for logic handling
+    first_semester = Semester.query.filter_by(name='First Semester').first()
+    second_semester = Semester.query.filter_by(name='Second Semester').first()
+    third_semester = Semester.query.filter_by(name='Summer Semester').first()
+
+    # Create a list of IDs for easier querying
+    first_and_second_sem_ids = []
+    if first_semester:
+        first_and_second_sem_ids.append(first_semester.id)
+    if second_semester:
+        first_and_second_sem_ids.append(second_semester.id)
+
+    output = []
+    for semester in semesters:
+        semester_data = {"id": semester.id, "name": semester.name, "programs": []}
+        
+        for program in programs:
+            program_data = {"id": program.id, "name": program.name, "levels": []}
+            
+            level_ids = (
+                db.session.query(ProgramCourse.level_id)
+                .filter_by(program_id=program.id)
+                .distinct()
+                .all()
+            )
+            
+            for level_row in level_ids:
+                level_id = level_row.level_id
+                level = db.session.get(Level, level_id)
+
+                level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+                
+                # Conditional logic for fetching courses
+                if third_semester and semester.id == third_semester.id:
+                    # For Summer semester, get courses from 1st and 2nd semesters
+                    if not first_and_second_sem_ids:
+                        program_courses = [] # Skip if 1st/2nd sem not found
+                    else:
+                        program_courses = ProgramCourse.query.filter(
+                            ProgramCourse.program_id == program.id,
+                            ProgramCourse.level_id == level.id,
+                            ProgramCourse.semester_id.in_(first_and_second_sem_ids)
+                        ).distinct()
+                else:
+                    # For regular semesters, get courses for that specific semester
+                    program_courses = ProgramCourse.query.filter_by(
+                        program_id=program.id, 
+                        level_id=level.id,
+                        semester_id=semester.id
+                    ).distinct()
+
+                for pc in program_courses:
+                    course = pc.course
+                    # Allocation is always checked against the current semester in the loop
+                    allocation = CourseAllocation.query.filter_by(
+                        program_course_id=pc.id,
+                        semester_id=semester.id
+                    ).first()
+
+                    level_data["courses"].append({
+                        "id": str(course.id),
+                        "code": course.code,
+                        "title": course.title,
+                        "unit": course.units,
+                        "isAllocated": bool(allocation),
+                        "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
+                    })
+                
+                if level_data["courses"]:
+                    program_data["levels"].append(level_data)
+
+            if program_data["levels"]:
+                semester_data["programs"].append(program_data)
+        
+        output.append(semester_data)
+        
+    return jsonify(output)
+
 
 @allocation_bp.route('/allocate/lecturers', methods=['GET'])
 @jwt_required()

@@ -8,7 +8,7 @@ from app.models import (
     Lecturer, AcademicSession, User, Specialization, Bulletin,
     DepartmentAllocationState
 )
-from icecream import ic
+
 import app.services.allocation_service as allocation_service
 
 

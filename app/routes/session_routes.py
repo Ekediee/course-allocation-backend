@@ -2,7 +2,7 @@ from flask_jwt_extended import jwt_required, current_user
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.models import AcademicSession, ProgramCourse, CourseAllocation, User
-from icecream import ic
+
 
 session_bp = Blueprint('sessions', __name__)
 

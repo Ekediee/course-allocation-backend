@@ -5,7 +5,7 @@ from app.models import (
 )
 from faker import Faker
 import random
-from icecream import ic
+
 
 fake = Faker()
 
@@ -127,4 +127,3 @@ db.session.add(hod_user)
 db.session.add_all(lecturer_users)
 db.session.commit()
 
-ic("Seeded School, Department, Programs, Courses, Lecturers, Users.")

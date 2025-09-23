@@ -5,6 +5,7 @@ __pycache__/
 
 # project docs
 project_docs/
+seed*.py
 
 # C extensions
 *.so

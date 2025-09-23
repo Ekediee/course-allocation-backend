@@ -232,3 +232,24 @@ class Bulletin(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, onupdate=datetime.now(timezone.utc))
+
+
+class DepartmentAllocationState(db.Model):
+    __tablename__ = 'department_allocation_state'
+
+    id = db.Column(db.Integer, primary_key=True)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    session_id = db.Column(db.Integer, db.ForeignKey('academic_session.id'), nullable=False)
+    semester_id = db.Column(db.Integer, db.ForeignKey('semester.id'), nullable=False)
+    is_submitted = db.Column(db.Boolean, default=False, nullable=False)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    submitted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    department = db.relationship('Department', backref='allocation_states')
+    session = db.relationship('AcademicSession', backref='allocation_states')
+    semester = db.relationship('Semester', backref='allocation_states')
+    submitted_by = db.relationship('User', backref='submitted_allocations')
+
+    __table_args__ = (
+        db.UniqueConstraint('department_id', 'session_id', 'semester_id', name='_department_session_semester_uc'),
+    )

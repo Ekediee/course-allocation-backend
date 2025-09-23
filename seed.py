@@ -1,5 +1,5 @@
 from app import create_app, db
-from icecream import ic
+
 from app.models.models import Semester, Level, User
 
 app = create_app()
@@ -36,4 +36,4 @@ with app.app_context():
         db.session.add(vetter)
 
     db.session.commit()
-    ic("Levels and Semesters seeded.")
+    

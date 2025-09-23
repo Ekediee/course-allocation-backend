@@ -2,7 +2,7 @@ from flask_jwt_extended import jwt_required, current_user
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.models import Department
-from icecream import ic
+
 
 department_bp = Blueprint('departments', __name__)
 

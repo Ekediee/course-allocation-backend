@@ -5,11 +5,91 @@ from app import db
 from app.models import (
     Program, ProgramCourse, 
     CourseAllocation, Semester, Level, 
-    Lecturer, AcademicSession, User, Specialization, Bulletin
+    Lecturer, AcademicSession, User, Specialization, Bulletin,
+    DepartmentAllocationState
 )
-from icecream import ic
+
+import app.services.allocation_service as allocation_service
+
 
 allocation_bp = Blueprint('allocations', __name__)
+
+@allocation_bp.route('/status/<int:semester_id>', methods=['GET'])
+@jwt_required()
+def get_allocation_submission_status(semester_id):
+    """
+    Checks if the allocations for the HOD's department for a given semester are submitted.
+    """
+    if not current_user.is_hod:
+        return jsonify({"error": "Unauthorized: Only HODs can check submission status."}), 403
+
+    department_id = current_user.department_id
+    is_submitted, error = allocation_service.get_allocation_status(department_id, semester_id)
+
+    if error:
+        return jsonify({"error": error}), 404
+
+    return jsonify({"is_submitted": is_submitted}), 200
+
+
+@allocation_bp.route('/submit', methods=['POST'])
+@jwt_required()
+def submit_allocations():
+    """
+    Submits (locks) the course allocations for the HOD's department for a specific semester.
+    """
+    if not current_user.is_hod:
+        return jsonify({"error": "Unauthorized: Only HODs can submit allocations."}), 403
+
+    data = request.get_json()
+    semester_id = data.get('semester_id')
+
+    if not semester_id:
+        return jsonify({"error": "semester_id is required."}), 400
+
+    department_id = current_user.department_id
+    user_id = current_user.id
+
+    state, error = allocation_service.submit_allocation(department_id, user_id, semester_id)
+
+    if error:
+        return jsonify({"error": error}), 400
+    
+    return jsonify({
+        "message": "Allocations submitted successfully.",
+        "submission_details": {
+            "department_id": state.department_id,
+            "semester_id": state.semester_id,
+            "session_id": state.session_id,
+            "submitted_at": state.submitted_at.isoformat()
+        }
+    }), 200
+
+
+@allocation_bp.route('/unblock', methods=['PUT'])
+@jwt_required()
+def unblock_allocations():
+    """
+    Unblocks (unlocks) course allocations for a department and semester.
+    Accessible only by superadmins.
+    """
+    if not current_user.is_superadmin:
+        return jsonify({"error": "Unauthorized: Only administrators can unblock allocations."}), 403
+
+    data = request.get_json()
+    department_id = data.get('department_id')
+    semester_id = data.get('semester_id')
+
+    if not department_id or not semester_id:
+        return jsonify({"error": "department_id and semester_id are required."}), 400
+
+    state, error = allocation_service.unblock_allocation(department_id, semester_id)
+
+    if error:
+        return jsonify({"error": error}), 400
+
+    return jsonify({"message": f"Allocations for department {department_id} and semester {semester_id} have been unblocked."}), 200
+
 
 @allocation_bp.route('/list', methods=['GET'])
 @jwt_required()
@@ -397,11 +477,6 @@ def get_courses_for_allocation_by_bulletin():
     bulletin_name = data.get('bulletin')
     program_name = data.get('program')
     semester_name = data.get('semester')
-
-    # # 3. Validate parameters
-    # if not all([bulletin_name, program_name, semester_name]):
-    #     return jsonify({"error": "Missing required query parameters: bulletin_name, program, semester"}), 400
-    
     
     # 4. Fetch bulletin from DB
     bulletin = Bulletin.query.filter_by(name=bulletin_name).first()
@@ -410,6 +485,9 @@ def get_courses_for_allocation_by_bulletin():
 
     if not bulletin:
         return jsonify({"error": f"Bulletin '{bulletin_name}' not found."}), 404
+
+    # 4a. Check submission status
+    is_submitted, _ = allocation_service.get_allocation_status(current_user.department_id, semester.id)
 
     # 5. Fetch program courses based on criteria
     program_courses = ProgramCourse.query.filter_by(
@@ -449,4 +527,7 @@ def get_courses_for_allocation_by_bulletin():
     # 7. Convert the dictionary to a list for the final output
     output = list(levels_data.values())
 
-    return jsonify(output)
+    return jsonify({
+        "is_submitted": is_submitted,
+        "levels": output
+    })

@@ -3,7 +3,6 @@ from flask_jwt_extended import create_access_token, set_access_cookies
 from app.models.models import User, Department, Lecturer
 from app.services.umis_auth_service import auth_user
 from app import db
-from icecream import ic
 
 umis_auth_bp = Blueprint('umis-auth', __name__)
 
@@ -38,7 +37,6 @@ def login():
     email = instructor_data.get('email')
     staff_id = instructor_data.get('instructorid')
 
-    ic(instructor_data)
     # Find department in local DB
     department = Department.query.filter_by(name=department_name).first()
     if not department:

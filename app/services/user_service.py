@@ -31,7 +31,7 @@ def create_user(data):
     """
     Creates a new user and, if applicable, a corresponding lecturer profile.
     """
-    from icecream import ic
+    
 
     try:
         lecturer_id = None

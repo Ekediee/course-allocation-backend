@@ -11,5 +11,6 @@ from .models import (
     AcademicSession,
     CourseAllocation,
     Bulletin,
-    Specialization
+    Specialization,
+    DepartmentAllocationState
 )

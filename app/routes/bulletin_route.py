@@ -54,7 +54,7 @@ def get_bulletin():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch bulletins"}), 403
 
-    bulletins = Bulletin.query.order_by(Bulletin.id).all()
+    bulletins = Bulletin.query.order_by(Bulletin.id.desc()).all()
     
     return jsonify({
         "bulletins": [

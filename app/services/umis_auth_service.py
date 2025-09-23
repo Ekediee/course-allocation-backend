@@ -38,7 +38,7 @@ def auth_user(data):
                 'authorization': token
             }
 
-            resp = requests.get(url, headers=header)
+            resp = requests.get(instructor_api, headers=header)
             if resp.status_code == 200:
                 instructors = resp.json()
 

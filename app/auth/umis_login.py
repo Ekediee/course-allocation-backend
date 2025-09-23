@@ -38,6 +38,7 @@ def login():
     email = instructor_data.get('email')
     staff_id = instructor_data.get('instructorid')
 
+    ic(instructor_data)
     # Find department in local DB
     department = Department.query.filter_by(name=department_name).first()
     if not department:

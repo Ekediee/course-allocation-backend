@@ -6,7 +6,7 @@ from app.models import (
     Program, ProgramCourse, 
     CourseAllocation, Semester, Level, 
     Lecturer, AcademicSession, User, Specialization, Bulletin,
-    DepartmentAllocationState
+    DepartmentAllocationState, Department
 )
 
 import app.services.allocation_service as allocation_service
@@ -91,6 +91,26 @@ def unblock_allocations():
     return jsonify({"message": f"Allocations for department {department_id} and semester {semester_id} have been unblocked."}), 200
 
 
+@allocation_bp.route('/update', methods=['PUT'])
+@jwt_required()
+def update_allocation():
+    """
+    Updates the allocation for a course using a delete-then-insert strategy.
+    """
+    if not current_user.is_hod:
+        return jsonify({"error": "Unauthorized: Only HODs can update allocations."}), 403
+
+    data = request.get_json()
+    department_id = current_user.department_id
+
+    success, error = allocation_service.update_course_allocation(data, department_id)
+
+    if error:
+        return jsonify({"status": "error", "message": error}), 400
+    
+    return jsonify({"status": "success", "message": "Course allocation updated successfully."}), 200
+
+
 @allocation_bp.route('/list', methods=['GET'])
 @jwt_required()
 def get_hod_course_allocations():
@@ -155,6 +175,7 @@ def get_detailed_course_list_for_allocation():
     department = current_user.lecturer.department
     programs = Program.query.filter_by(department_id=department.id).all()
     semesters = Semester.query.all()
+    session = AcademicSession.query.filter_by(is_active=True).first()
 
     # Pre-fetch semester objects for logic handling
     first_semester = Semester.query.filter_by(name='First Semester').first()
@@ -170,7 +191,7 @@ def get_detailed_course_list_for_allocation():
 
     output = []
     for semester in semesters:
-        semester_data = {"id": semester.id, "name": semester.name, "programs": []}
+        semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "programs": []}
         
         for program in programs:
             program_data = {"id": program.id, "name": program.name, "levels": []}
@@ -511,7 +532,7 @@ def get_courses_for_allocation_by_bulletin():
         if level.id not in levels_data:
             levels_data[level.id] = {
                 "id": str(level.id),
-                "name": f"{level.name.strip("L")} Level",
+                "name": f"{level.name} Level",
                 "courses": []
             }
 
@@ -531,3 +552,76 @@ def get_courses_for_allocation_by_bulletin():
         "is_submitted": is_submitted,
         "levels": output
     })
+
+@allocation_bp.route('/allocation-status-overview', methods=['GET'])
+@jwt_required()
+def get_allocation_status_overview():
+    """
+    Gets an overview of the allocation status for all departments for each semester.
+    Status can be 'Allocated', 'Still Allocating', or 'Not Started'.
+    Accessible by superadmins and vetters.
+    """
+    if not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized: Only superadmins and vetters can view this."}), 403
+
+    try:
+        semesters = Semester.query.order_by(Semester.id).all()
+        departments = Department.query.order_by(Department.name).all()
+        active_session = AcademicSession.query.filter_by(is_active=True).first()
+
+        if not active_session:
+            return jsonify({"error": "No active academic session found."}), 404
+
+        output = []
+        for semester in semesters:
+            semester_data = {
+                "id": semester.id,
+                "name": semester.name,
+                "departments": []
+            }
+
+            for i, department in enumerate(departments):
+                
+                # 1. Check if the department has submitted allocations for this semester
+                if department.name not in ["Academic Planning", "Registry"]:
+                    print(department.name)
+                    is_submitted = DepartmentAllocationState.query.filter_by(
+                        department_id=department.id,
+                        semester_id=semester.id,
+                        session_id=active_session.id
+                    ).first()
+
+                    if is_submitted:
+                        status = "Allocated"
+                    else:
+                        # 2. If not submitted, check if there are any partial allocations
+                        has_allocations = db.session.query(CourseAllocation.id)\
+                            .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
+                            .join(Program, Program.id == ProgramCourse.program_id)\
+                            .filter(Program.department_id == department.id)\
+                            .filter(CourseAllocation.semester_id == semester.id)\
+                            .filter(CourseAllocation.session_id == active_session.id)\
+                            .first() is not None
+                        
+                        if has_allocations:
+                            status = "Still Allocating"
+                        else:
+                            status = "Not Started"
+                    
+                    semester_data["departments"].append({
+                        "sn": i + 1,
+                        "department_id": department.id,
+                        "department_name": department.name,
+                        "status": status
+                    })
+
+            status_order = {"Allocated": 0, "Still Allocating": 1, "Not Started": 2}
+            semester_data["departments"].sort(key=lambda d: status_order.get(d["status"], 99))        
+            
+            output.append(semester_data)
+
+        return jsonify(output)
+
+    except Exception as e:
+        # Log the error e
+        return jsonify({"error": "An unexpected error occurred.", "details": str(e)}), 500

@@ -1,5 +1,5 @@
 from app import db
-from app.models import DepartmentAllocationState, AcademicSession, User
+from app.models import DepartmentAllocationState, AcademicSession, User, CourseAllocation, ProgramCourse, Lecturer, Semester, Program
 from datetime import datetime, timezone
 
 def get_allocation_status(department_id, semester_id):
@@ -72,3 +72,68 @@ def unblock_allocation(department_id, semester_id):
     db.session.commit()
     
     return state, None
+
+def update_course_allocation(data_list, department_id):
+    if not data_list:
+        return None, "Request body cannot be empty."
+
+    first_item = data_list[0]
+    semester_id = first_item.get('semesterId')
+
+    # Check if the allocation is submitted
+    is_submitted, error = get_allocation_status(department_id, semester_id)
+    if error:
+        return None, error
+    if is_submitted:
+        return None, "Cannot update allocations that have already been submitted."
+
+    session = AcademicSession.query.filter_by(is_active=True).first()
+    if not session:
+        return None, "No active academic session found."
+
+    try:
+        # Delete existing allocations for the course
+        pc = ProgramCourse.query.filter_by(
+            program_id=first_item.get('programId'),
+            course_id=first_item.get('courseId'),
+            level_id=first_item.get('levelId'),
+            semester_id=semester_id
+        ).first()
+        
+        if pc:
+            CourseAllocation.query.filter_by(program_course_id=pc.id, session_id=session.id).delete()
+
+        # Insert new allocations
+        for data in data_list:
+            lecturer_name = data.get("allocatedTo")
+            if not lecturer_name: # Skip if no lecturer is assigned
+                continue
+
+            lecturer = (
+                Lecturer.query.join(User)
+                .filter(User.name == lecturer_name, Lecturer.department_id == department_id)
+                .first()
+            )
+            if not lecturer:
+                raise ValueError(f"Lecturer '{lecturer_name}' not found.")
+
+            allocation = CourseAllocation(
+                program_course_id=pc.id,
+                session_id=session.id,
+                semester_id=semester_id,
+                lecturer_id=lecturer.id,
+                source_bulletin_id=pc.bulletin_id,
+                is_de_allocation=False,
+                group_name=data.get("groupName"),
+                is_lead=(data.get("groupName", "").lower() == "group a"),
+                is_allocated=data.get("isAllocated", False),
+                class_size=data.get("classSize", 0)
+            )
+            db.session.add(allocation)
+        
+        db.session.commit()
+        return True, None
+
+    except Exception as e:
+        db.session.rollback()
+        return None, str(e)

@@ -233,3 +233,24 @@ Tracks the actual delivery of courses, supporting multi-lecturer assignments, gr
 👥 Lecturer Grouping: Supports team-teaching and group splitting for large classes.
 📊 Session-Based Allocation: Keeps history of each academic year cleanly organized.
 🧱 Role-Based Access: Differentiates between admin, HODs, and lecturers.
+
+🔹 DepartmentAllocationState
+Purpose:
+Tracks the submission status of course allocations for a department on a per-semester, per-session basis. This model is central to the "submit and lock" workflow.
+
+Key Fields:
+- `department_id`: Links to the `Department`.
+- `session_id`: Links to the `AcademicSession`.
+- `semester_id`: Links to the `Semester`.
+- `is_submitted`: A boolean flag (`True`/`False`) indicating if the allocation is locked for editing.
+- `submitted_at`: Timestamp of when the submission occurred.
+- `submitted_by_id`: The user (HOD) who submitted the allocation.
+
+Constraints:
+- Composite uniqueness on `(department_id, session_id, semester_id)` ensures that there is only one submission state record per department, per semester, per session.
+
+Relationships:
+- Belongs to `Department`, `AcademicSession`, `Semester`, and `User`.
+
+Why It Matters:
+This model enables the workflow where HODs can finalize and "submit" their allocations for a semester, locking them from further edits. It also allows administrators to "unblock" these submissions, making them editable again. This provides a clear and robust state management system for the course allocation process.

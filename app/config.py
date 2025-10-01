@@ -7,6 +7,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+    LOG_FILE = "app.log"
 
     # Email configuration
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.googlemail.com')
@@ -25,6 +26,10 @@ class Config:
     JWT_COOKIE_CSRF_PROTECT = False  # You can turn it on if needed
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=2)
 
+class ProductionConfig(Config):
+    JWT_COOKIE_SECURE = True
+    JWT_COOKIE_CSRF_PROTECT = True
+
 class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
@@ -34,6 +39,7 @@ class TestingConfig(Config):
 
 config = {
     'development': Config,
+    'production': ProductionConfig,
     'testing': TestingConfig,
     'default': Config
 }

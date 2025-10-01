@@ -1,8 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, current_user
 from app.services.user_service import get_all_users, create_user, create_users_batch
 
 user_bp = Blueprint('users', __name__)
+
 
 @user_bp.route('', methods=['GET'])
 @jwt_required()

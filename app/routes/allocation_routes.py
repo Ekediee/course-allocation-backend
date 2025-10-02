@@ -584,7 +584,7 @@ def get_allocation_status_overview():
                 
                 # 1. Check if the department has submitted allocations for this semester
                 if department.name not in ["Academic Planning", "Registry"]:
-                    print(department.name)
+                    
                     is_submitted = DepartmentAllocationState.query.filter_by(
                         department_id=department.id,
                         semester_id=semester.id,

@@ -44,16 +44,28 @@ def create_app(config_name='default'):
     # Configure logging
     if not app.debug and not app.testing:
         log_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs'))
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        file_handler = RotatingFileHandler(os.path.join(log_dir, 'app.log'), maxBytes=10240, backupCount=10)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
+        os.makedirs(log_dir, exist_ok=True)
 
+        file_handler = RotatingFileHandler(
+            os.path.join(log_dir, 'app.log'),
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=10
+        )
+
+        formatter = logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        )
+        file_handler.setFormatter(formatter)
+
+        # Set levels (INFO covers INFO, WARNING, ERROR, CRITICAL)
+        file_handler.setLevel(logging.INFO)
         app.logger.setLevel(logging.INFO)
-        app.logger.info('Course Allocation startup')
+
+        # Avoid adding handler multiple times
+        if not any(isinstance(h, RotatingFileHandler) for h in app.logger.handlers):
+            app.logger.addHandler(file_handler)
+
+        app.logger.info('Course Allocation app startup')
 
     # Import and register blueprints here
     from app.auth.routes import auth_bp

@@ -6,6 +6,7 @@ __pycache__/
 # project docs
 project_docs/
 seed*.py
+create_admin.py
 
 # C extensions
 *.so

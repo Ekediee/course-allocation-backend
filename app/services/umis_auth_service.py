@@ -29,9 +29,9 @@ def auth_user(data):
         if response.status_code == 200:
             token = response.json()['access_token']
 
-            id = "DICK2010"
+            id = "ICK2010"
 
-            instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={id}'
+            instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={umisid}'
 
             header = {
                 'action': 'read',
@@ -43,7 +43,7 @@ def auth_user(data):
                 instructors = resp.json()
 
                 for instructor in instructors['data']:
-                    if instructor['instructorid'] == "DICK2010":
+                    if instructor['instructorid'] == umisid:
 
                         return instructor, None             
     except Exception as e:

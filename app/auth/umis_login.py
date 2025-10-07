@@ -37,6 +37,9 @@ def login():
     email = instructor_data.get('email')
     staff_id = instructor_data.get('instructorid')
 
+    if not is_hod:
+        return jsonify({"msg": f"Invalid credentials - only HOD's can access this resource"}), 403
+
     # Find department in local DB
     department = Department.query.filter_by(name=department_name).first()
     if not department:

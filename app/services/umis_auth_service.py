@@ -29,7 +29,8 @@ def auth_user(data):
         if response.status_code == 200:
             token = response.json()['access_token']
 
-            id = "ICK2010"
+            # id = "DICK2010"
+            # id = "AARO123"
 
             instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={umisid}'
 

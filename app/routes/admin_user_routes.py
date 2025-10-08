@@ -7,7 +7,7 @@ admin_user_bp = Blueprint('admin_users', __name__, url_prefix='/api/v1/admin')
 @admin_user_bp.route('/users', methods=['GET'])
 @jwt_required()
 def handle_get_admin_users():
-    if not current_user or not current_user.is_vetter:
+    if not current_user or not (current_user.is_vetter or current_user.is_superadmin):
         return jsonify({"msg": "Unauthorized"}), 403
         
     users, error = get_all_admin_users()
@@ -18,7 +18,7 @@ def handle_get_admin_users():
 @admin_user_bp.route('/users', methods=['POST'])
 @jwt_required()
 def handle_create_admin_user():
-    if not current_user or not current_user.is_vetter:
+    if not current_user or not (current_user.is_vetter or current_user.is_superadmin):
         return jsonify({"msg": "Unauthorized"}), 403
 
     data = request.get_json()

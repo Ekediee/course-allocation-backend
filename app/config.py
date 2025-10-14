@@ -24,7 +24,7 @@ class Config:
     JWT_ACCESS_COOKIE_NAME = "access_token_cookie"
     # Optional: CSRF protection (good to use in production)
     JWT_COOKIE_CSRF_PROTECT = False  # You can turn it on if needed
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=2)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=3)
 
 class ProductionConfig(Config):
     JWT_COOKIE_SECURE = True

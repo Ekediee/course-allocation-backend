@@ -151,3 +151,44 @@ def batch_upload():
         "message": f"Successfully uploaded {len(created)} schools.",
         "departments_created": created
     })
+
+@department_bp.route('/update/<int:id>', methods=['PUT'])
+@jwt_required()
+def update_department(id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can update departments"}), 403
+
+    department = Department.query.get(id)
+    if not department:
+        return jsonify({'error': 'Department not found'}), 404
+
+    data = request.get_json()
+    name = data.get('name')
+    school_id = data.get('school_id')
+    acronym = data.get('acronym')
+
+    if not name:
+        return jsonify({'error': 'Department name is required'}), 400
+
+    department.name = name
+    department.school_id = school_id
+    department.acronym = acronym
+
+    db.session.commit()
+
+    return jsonify({'message': 'Department updated successfully'}), 200
+
+@department_bp.route('/delete/<int:id>', methods=['DELETE'])
+@jwt_required()
+def delete_department(id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"msg": "Unauthorized – Only superadmin can delete departments"}), 403
+
+    department = Department.query.get(id)
+    if not department:
+        return jsonify({'error': 'Department not found'}), 404
+
+    db.session.delete(department)
+    db.session.commit()
+
+    return jsonify({'message': 'Department deleted successfully'}), 200

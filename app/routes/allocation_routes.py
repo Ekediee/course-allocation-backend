@@ -608,16 +608,38 @@ def get_allocation_status_overview():
                         else:
                             status = "Not Started"
                     
+                    # semester_data["departments"].append({
+                    #     "sn": i + 1,
+                    #     "department_id": department.id,
+                    #     "department_name": department.name,
+                    #     "status": status
+                    # })
+
+                    # get most recent allocation timestamp for this department (if any)
+                    last_alloc_row = db.session.query(CourseAllocation.created_at)\
+                        .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
+                        .join(Program, Program.id == ProgramCourse.program_id)\
+                        .filter(Program.department_id == department.id)\
+                        .filter(CourseAllocation.semester_id == semester.id)\
+                        .filter(CourseAllocation.session_id == active_session.id)\
+                        .order_by(CourseAllocation.created_at.desc())\
+                        .first()
+
+                    last_alloc_at = last_alloc_row[0] if last_alloc_row else None
+
                     semester_data["departments"].append({
                         "sn": i + 1,
                         "department_id": department.id,
                         "department_name": department.name,
-                        "status": status
+                        "status": status,
+                        "last_allocation_at": last_alloc_at.isoformat() if last_alloc_at else None
                     })
 
-            status_order = {"Allocated": 0, "Still Allocating": 1, "Not Started": 2}
-            semester_data["departments"].sort(key=lambda d: status_order.get(d["status"], 99))        
-            
+            # status_order = {"Allocated": 0, "Still Allocating": 1, "Not Started": 2}
+            # semester_data["departments"].sort(key=lambda d: status_order.get(d["status"], 99))        
+            # sort departments by most recent allocation first (None -> goes last)
+            semester_data["departments"].sort(key=lambda d: d.get("last_allocation_at") or "", reverse=True)
+
             output.append(semester_data)
 
         return jsonify(output)

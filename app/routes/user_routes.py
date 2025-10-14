@@ -20,7 +20,7 @@ def handle_get_users():
 @jwt_required()
 def handle_create_user():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
-        return jsonify({"msg": "Unauthorized"}), 403
+        return jsonify({"error": "Unauthorized"}), 403
 
     data = request.get_json()
     if not data or not all(k in data for k in ['name', 'email', 'role', 'department_id']):

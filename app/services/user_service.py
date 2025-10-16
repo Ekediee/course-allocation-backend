@@ -15,7 +15,7 @@ def get_all_users():
             Department.name.label('department_name')
         ).outerjoin(Lecturer, User.lecturer_id == Lecturer.id).join(Department, User.department_id == Department.id).order_by(desc(User.id))
         
-        users = users_query.all()
+        users = users_query.filter(Department.name.notin_(['Registry', 'Academic Planning'])).all()
 
         user_list = [{
             "id": u.id, "name": u.name, "email": u.email, "role": u.role,

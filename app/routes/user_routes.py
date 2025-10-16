@@ -1,9 +1,22 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, current_user
 from app.services.user_service import get_all_users, create_user, create_users_batch
+import re
 
 user_bp = Blueprint('users', __name__)
 
+def _simplify_db_error(err):
+    s = str(err)
+    # match MySQL duplicate entry message
+    m = re.search(r"Duplicate entry '([^']+)' for key '([^']+)'", s)
+    if m:
+        return f"Duplicate entry '{m.group(1)}' for key '{m.group(2)}'"
+    # fallback: return first non-empty line
+    for line in s.splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return s
 
 @user_bp.route('', methods=['GET'])
 @jwt_required()
@@ -46,11 +59,15 @@ def handle_create_users_batch():
         return jsonify({"error": "Invalid data"}), 400
     
     count, errors = create_users_batch(data['users'])
+    
     if errors:
+        cleaned = [_simplify_db_error(e) for e in errors]
+        errors_str = "\n".join(cleaned)
         return jsonify({
             "message": f"Successfully created {count} users with some errors.",
-            "errors": errors
+            "errors": f"The following conflicts were detected:\n\n{errors_str}"
         }), 400
+
 
     return jsonify({
         "message": f"Successfully created {count} users."

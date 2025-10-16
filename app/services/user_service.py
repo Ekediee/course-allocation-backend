@@ -37,7 +37,7 @@ def create_user(data):
         lecturer_id = None
         if data.get('role') in ['lecturer', 'hod']:
             new_lecturer = Lecturer(
-                staff_id=f"STF-{uuid.uuid4().hex[:6].upper()}",
+                staff_id=data.get('staff_id'),
                 gender=data.get('gender'), phone=data.get('phone'), rank=data.get('rank'),
                 specialization=data.get('specialization'), qualification=data.get('qualification'),
                 other_responsibilities=data.get('other_responsibilities'),

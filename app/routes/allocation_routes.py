@@ -626,11 +626,14 @@ def get_allocation_status_overview():
                         .first()
 
                     last_alloc_at = last_alloc_row[0] if last_alloc_row else None
+                    
+                    hod = next((u for u in department.users if u.is_hod), None)
 
                     semester_data["departments"].append({
                         "sn": i + 1,
                         "department_id": department.id,
                         "department_name": department.name,
+                        "hod_name": hod.name if hod else "N/A",
                         "status": status,
                         "last_allocation_at": last_alloc_at.isoformat() if last_alloc_at else None
                     })

@@ -64,7 +64,7 @@ class AdminUser(db.Model):
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=True)
     role = db.Column(
         db.Enum("superadmin", "admin", "vetter", "hod", "lecturer", name="user_roles"),
         nullable=False

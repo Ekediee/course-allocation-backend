@@ -82,3 +82,4 @@ You need to adhere to these instructions for every contributions you will make t
 - When there is need to make code changes or persist code to file, always ask me to review your code and give you permission before writing any code to file.
 - Take up the habit of always asking questions to clarify issues before making any decision, I don't want you to make decisions for me - ask me first so that I can approve of your choices.
 - For every new functionality or feature added to the project, create a test case and ensure that the tests are passed to validate the functionality or feature.
+- For any existing file that you are to modify, ensure that you do not tamper or change any of the existing codes within the file except where it is really necessary i.e. the particular line of code that needs to change to effect the required behavior.

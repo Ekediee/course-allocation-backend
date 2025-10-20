@@ -36,8 +36,11 @@ def create_user(data):
     try:
         lecturer_id = None
         if data.get('role') in ['lecturer', 'hod']:
+            staff_id = data.get('staff_id')
+            if not staff_id:
+                staff_id = str(uuid.uuid4())
             new_lecturer = Lecturer(
-                staff_id=data.get('staff_id'),
+                staff_id=staff_id,
                 gender=data.get('gender'), phone=data.get('phone'), rank=data.get('rank'),
                 specialization=data.get('specialization'), qualification=data.get('qualification'),
                 other_responsibilities=data.get('other_responsibilities'),
@@ -85,3 +88,64 @@ def create_users_batch(users_data):
         else:
             created_count += 1
     return created_count, errors if errors else None
+
+def update_user(user_id, data):
+    """
+    Updates a user and their associated lecturer profile.
+    """
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return None, "User not found"
+
+        user.name = data.get('name', user.name)
+        user.email = data.get('email', user.email)
+        user.role = data.get('role', user.role)
+        user.department_id = data.get('department_id', user.department_id)
+
+        if user.lecturer:
+            lecturer = user.lecturer
+            lecturer.gender = data.get('gender', lecturer.gender)
+            lecturer.phone = data.get('phone', lecturer.phone)
+            lecturer.rank = data.get('rank', lecturer.rank)
+            lecturer.specialization = data.get('specialization', lecturer.specialization)
+            lecturer.qualification = data.get('qualification', lecturer.qualification)
+            lecturer.other_responsibilities = data.get('other_responsibilities', lecturer.other_responsibilities)
+
+        db.session.commit()
+
+        department = Department.query.get(user.department_id)
+        user_data = {
+            "id": user.id, "name": user.name, "email": user.email,
+            "role": user.role, "department": department.name if department else None
+        }
+        if user.lecturer:
+            lecturer = user.lecturer
+            user_data.update({
+                "gender": lecturer.gender, "phone": lecturer.phone, "rank": lecturer.rank,
+                "specialization": lecturer.specialization, "qualification": lecturer.qualification,
+                "other_responsibilities": lecturer.other_responsibilities
+            })
+        return user_data, None
+    except Exception as e:
+        db.session.rollback()
+        return None, str(e)
+
+def delete_user(user_id):
+    """
+    Deletes a user and their associated lecturer profile.
+    """
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return None, "User not found"
+
+        if user.lecturer:
+            db.session.delete(user.lecturer)
+        
+        db.session.delete(user)
+        db.session.commit()
+        return True, None
+    except Exception as e:
+        db.session.rollback()
+        return None, str(e)

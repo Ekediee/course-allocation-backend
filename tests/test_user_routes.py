@@ -54,6 +54,7 @@ def test_create_lecturer_user(test_client):
         "name": "Test Lecturer",
         "email": "lecturer@test.com",
         "role": "lecturer",
+        "staff_id": "12345",
         "department_id": department.id,
         "gender": "Male",
         "phone": "1234567890",
@@ -76,6 +77,7 @@ def test_create_user_by_vetter(test_client):
         "name": "Another Lecturer",
         "email": "lecturer2@test.com",
         "role": "lecturer",
+        "staff_id": "67890",
         "department_id": department.id,
         "gender": "Female"
     }
@@ -93,6 +95,7 @@ def test_batch_create_users(test_client):
                 "name": "Batch User 1",
                 "email": "batch1@test.com",
                 "role": "lecturer",
+                "staff_id": "batch1",
                 "department_id": department.id,
                 "gender": "Male"
             },
@@ -100,6 +103,7 @@ def test_batch_create_users(test_client):
                 "name": "Batch User 2",
                 "email": "batch2@test.com",
                 "role": "hod",
+                "staff_id": "batch2",
                 "department_id": department.id,
                 "gender": "Female"
             }
@@ -109,3 +113,47 @@ def test_batch_create_users(test_client):
     assert response.status_code == 201
     json_data = response.get_json()
     assert json_data['message'] == "Successfully created 2 users."
+
+def test_update_user(test_client):
+    headers = get_auth_headers("super@admin.com")
+    user_to_update = User.query.filter_by(email="vetter@user.com").first()
+    department = Department.query.first()
+    data = {
+        "name": "Updated Name",
+        "email": "updated_vetter@user.com",
+        "role": "hod",
+        "department_id": department.id
+    }
+    response = test_client.put(f'/api/v1/users/{user_to_update.id}', json=data, headers=headers)
+    assert response.status_code == 200
+    json_data = response.get_json()
+    assert json_data['msg'] == "User updated successfully"
+    assert json_data['user']['name'] == "Updated Name"
+    assert json_data['user']['email'] == "updated_vetter@user.com"
+    assert json_data['user']['role'] == "hod"
+    # Since we are not creating a lecturer profile, we should not expect these fields
+    assert 'rank' not in json_data['user']
+    assert 'specialization' not in json_data['user']
+
+def test_delete_user(test_client):
+    headers = get_auth_headers("super@admin.com")
+    user_to_delete = User.query.filter_by(email="vetter@user.com").first()
+    response = test_client.delete(f'/api/v1/users/{user_to_delete.id}', headers=headers)
+    assert response.status_code == 200
+    json_data = response.get_json()
+    assert json_data['msg'] == "User deleted successfully"
+
+    # Verify the user is deleted
+    deleted_user = User.query.get(user_to_delete.id)
+    assert deleted_user is None
+
+def test_update_user_not_found(test_client):
+    headers = get_auth_headers("super@admin.com")
+    data = {"name": "some name"}
+    response = test_client.put('/api/v1/users/9999', json=data, headers=headers)
+    assert response.status_code == 404
+
+def test_delete_user_not_found(test_client):
+    headers = get_auth_headers("super@admin.com")
+    response = test_client.delete('/api/v1/users/9999', headers=headers)
+    assert response.status_code == 404

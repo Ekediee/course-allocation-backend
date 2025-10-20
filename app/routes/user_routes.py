@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, current_user
-from app.services.user_service import get_all_users, create_user, create_users_batch
+from app.services.user_service import get_all_users, create_user, create_users_batch, update_user, delete_user
 import re
 
 user_bp = Blueprint('users', __name__)
@@ -60,7 +60,7 @@ def handle_create_users_batch():
     
     count, errors = create_users_batch(data['users'])
     
-    if errors:
+    if errors and any(errors):
         cleaned = [_simplify_db_error(e) for e in errors]
         errors_str = "\n".join(cleaned)
         return jsonify({
@@ -72,3 +72,38 @@ def handle_create_users_batch():
     return jsonify({
         "message": f"Successfully created {count} users."
     }), 201
+
+@user_bp.route('/<int:user_id>', methods=['PUT'])
+@jwt_required()
+def handle_update_user(user_id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    updated_user, error = update_user(user_id, data)
+    if error:
+        if error == "User not found":
+            return jsonify({'error': error}), 404
+        return jsonify({'error': error}), 500
+        
+    return jsonify({
+        "msg": "User updated successfully",
+        "user": updated_user
+    }), 200
+
+@user_bp.route('/<int:user_id>', methods=['DELETE'])
+@jwt_required()
+def handle_delete_user(user_id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    success, error = delete_user(user_id)
+    if error:
+        if error == "User not found":
+            return jsonify({'error': error}), 404
+        return jsonify({'error': error}), 500
+        
+    return jsonify({"msg": "User deleted successfully"}), 200

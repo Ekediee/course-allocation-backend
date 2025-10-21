@@ -31,19 +31,19 @@ def create_user(data):
     """
     Creates a new user and, if applicable, a corresponding lecturer profile.
     """
-    
 
     try:
         lecturer_id = None
-        if data.get('role') in ['lecturer', 'hod']:
+        role = data.get('role').lower()
+        if role in ['lecturer', 'hod']:
             staff_id = data.get('staff_id')
             if not staff_id:
                 staff_id = str(uuid.uuid4())
             new_lecturer = Lecturer(
                 staff_id=staff_id,
-                gender=data.get('gender'), phone=data.get('phone'), rank=data.get('rank'),
-                specialization=data.get('specialization'), qualification=data.get('qualification'),
-                other_responsibilities=data.get('other_responsibilities'),
+                gender=data.get('gender').title(), phone=data.get('phone'), rank=data.get('rank').title(),
+                specialization=data.get('specialization').title(), qualification=data.get('qualification').title(),
+                other_responsibilities=data.get('other_responsibilities').title(),
                 department_id=data.get('department_id')
             )
             db.session.add(new_lecturer)

@@ -168,6 +168,30 @@ def get_hod_course_allocations():
         output.append(semester_data)
     return output
 
+@allocation_bp.route('/allocation-by-department', methods=['POST'])
+@jwt_required()
+def get_allocations_by_department_route():
+    """
+     Gets all course allocations for a given department and semester,
+     organized by program and level.
+    """
+    if not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized: Only superadmins and vetters can view this."}), 403
+    
+    data = request.get_json()
+    department_id = data.get('department')
+    semester_id = data.get('semester')
+
+    if not department_id or not semester_id:
+        return jsonify({"error": "department_id and semester_id are required."}), 400
+
+    allocations, error = allocation_service.get_allocations_by_department(department_id, semester_id)
+
+    if error:
+        return jsonify({"error": error}), 400
+
+    return jsonify(allocations)
+
 
 @allocation_bp.route('/detailed-list', methods=['GET'])
 @jwt_required()

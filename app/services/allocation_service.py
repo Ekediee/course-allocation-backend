@@ -1,5 +1,5 @@
 from app import db
-from app.models import DepartmentAllocationState, AcademicSession, User, CourseAllocation, ProgramCourse, Lecturer, Semester, Program
+from app.models import DepartmentAllocationState, AcademicSession, User, CourseAllocation, ProgramCourse, Lecturer, Semester, Program, Level
 from datetime import datetime, timezone
 
 def get_allocation_status(department_id, semester_id):
@@ -137,3 +137,83 @@ def update_course_allocation(data_list, department_id):
     except Exception as e:
         db.session.rollback()
         return None, str(e)
+
+def get_allocations_by_department(department_id, semester_id):
+    """
+    Gets all course allocations for a given department and semester,
+    organized by program and level.
+    """
+    programs = Program.query.filter_by(department_id=department_id).all()
+    semester = db.session.get(Semester, semester_id)
+    session = AcademicSession.query.filter_by(is_active=True).first()
+
+    if not semester or not session:
+        return None, "Invalid semester or session."
+
+    semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "programs": []}
+
+    for program in programs:
+        program_data = {"id": program.id, "name": program.name, "levels": []}
+        
+        level_ids = (
+            db.session.query(ProgramCourse.level_id)
+            .filter_by(program_id=program.id)
+            .distinct()
+            .all()
+        )
+        
+        for level_row in level_ids:
+            level_id = level_row.level_id
+            level = db.session.get(Level, level_id)
+
+            level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+            
+            program_courses = ProgramCourse.query.filter_by(
+                program_id=program.id, 
+                level_id=level.id,
+                semester_id=semester.id
+            ).distinct()
+
+            for pc in program_courses:
+                course = pc.course
+                allocations = CourseAllocation.query.filter_by(
+                    program_course_id=pc.id,
+                    semester_id=semester.id,
+                    session_id=session.id
+                ).all()
+
+                if allocations:
+                    for allocation in allocations:
+                        lecturer_name = None
+                        if allocation.lecturer_profile and allocation.lecturer_profile.user_account:
+                            lecturer_name = allocation.lecturer_profile.user_account[0].name
+
+                        level_data["courses"].append({
+                            "id": str(course.id),
+                            "code": course.code,
+                            "title": course.title,
+                            "unit": course.units,
+                            "isAllocated": bool(allocation),
+                            "allocatedTo": lecturer_name,
+                            "groupName": allocation.group_name
+                        })
+                else:
+                    level_data["courses"].append({
+                        "id": str(course.id),
+                        "code": course.code,
+                        "title": course.title,
+                        "unit": course.units,
+                        "isAllocated": False,
+                        "allocatedTo": None,
+                        "groupName": None
+                    })
+            
+            if level_data["courses"]:
+                program_data["levels"].append(level_data)
+
+        if program_data["levels"]:
+            semester_data["programs"].append(program_data)
+
+    output = []
+    output.append(semester_data)
+    return output, None

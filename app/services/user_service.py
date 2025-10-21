@@ -51,7 +51,7 @@ def create_user(data):
             lecturer_id = new_lecturer.id
 
         new_user = User(
-            name=data.get('name'), email=data.get('email'), role=data.get('role'),
+            name=data.get('name').title(), email=data.get('email'), role=data.get('role'),
             department_id=data.get('department_id'), lecturer_id=lecturer_id
         )
         # new_user.set_password('default_password')

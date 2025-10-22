@@ -10,7 +10,7 @@ def get_all_users():
     try:
         users_query = db.session.query(
             User.id, User.name, User.email, User.role,
-            Lecturer.gender, Lecturer.phone, Lecturer.rank, Lecturer.specialization,
+            Lecturer.gender, Lecturer.staff_id, Lecturer.phone, Lecturer.rank, Lecturer.specialization,
             Lecturer.qualification, Lecturer.other_responsibilities,
             Department.name.label('department_name')
         ).outerjoin(Lecturer, User.lecturer_id == Lecturer.id).join(Department, User.department_id == Department.id).order_by(desc(User.id))
@@ -19,7 +19,7 @@ def get_all_users():
 
         user_list = [{
             "id": u.id, "name": u.name, "email": u.email, "role": u.role,
-            "gender": u.gender, "phone": u.phone, "rank": u.rank,
+            "gender": u.gender, "staff_id": u.staff_id, "phone": u.phone, "rank": u.rank,
             "specialization": u.specialization, "qualification": u.qualification,
             "other_responsibilities": u.other_responsibilities, "department": u.department_name
         } for u in users]
@@ -41,17 +41,21 @@ def create_user(data):
                 staff_id = str(uuid.uuid4())
             new_lecturer = Lecturer(
                 staff_id=staff_id,
-                gender=data.get('gender').title(), phone=data.get('phone'), rank=data.get('rank').title(),
-                specialization=data.get('specialization').title(), qualification=data.get('qualification').title(),
-                other_responsibilities=data.get('other_responsibilities').title(),
+                gender=data.get('gender').title(), phone=data.get('phone'), rank=data.get('rank'),
+                specialization=data.get('specialization'), qualification=data.get('qualification'),
+                other_responsibilities=data.get('other_responsibilities'),
                 department_id=data.get('department_id')
             )
             db.session.add(new_lecturer)
             db.session.flush()
             lecturer_id = new_lecturer.id
 
+        email = data.get('email')
+        if not email:
+            email = None # This will be translated to NULL
+
         new_user = User(
-            name=data.get('name').title(), email=data.get('email'), role=data.get('role'),
+            name=data.get('name').title(), email=email, role=data.get('role'),
             department_id=data.get('department_id'), lecturer_id=lecturer_id
         )
         # new_user.set_password('default_password')

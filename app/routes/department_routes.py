@@ -91,7 +91,7 @@ def get_departments_names():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch departments"}), 403
     
-    departments = Department.query.order_by(Department.id).all()
+    departments = Department.query.order_by(Department.id).filter(Department.name.notin_(['Registry', 'Academic Planning'])).all()
     
     return jsonify({
         "departments": [

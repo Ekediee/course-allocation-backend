@@ -150,7 +150,7 @@ def get_allocations_by_department(department_id, semester_id):
     if not semester or not session:
         return None, "Invalid semester or session."
 
-    semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "programs": []}
+    semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "department_name": programs[0].department.name, "programs": []}
 
     for program in programs:
         program_data = {"id": program.id, "name": program.name, "levels": []}

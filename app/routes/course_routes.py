@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, current_user
 from app.services.course_service import get_all_courses, create_course, batch_create_courses
+from .user_routes import _simplify_db_error
 
 course_bp = Blueprint('courses', __name__)
 
@@ -85,11 +86,15 @@ def handle_batch_create_courses():
    
     created_count, errors = batch_create_courses(courses_data)
 
-    response = {
-        "message": f"Successfully created {created_count} courses."
-    }
-    if errors:
-        response["errors"] = errors
-        return jsonify(response), 400
+    if errors and any(errors):
+        cleaned = [_simplify_db_error(e) for e in errors]
+        errors_str = "\n".join(cleaned)
 
-    return jsonify(response), 201
+        return jsonify({
+        "message": f"Successfully created {created_count} courses.",
+        "errors": f"The following conflicts were detected:\n\n{errors_str}"
+    }), 400
+
+    return jsonify({
+        "message": f"Successfully created {created_count} courses."
+    }), 201

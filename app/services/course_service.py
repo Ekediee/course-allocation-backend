@@ -1,6 +1,7 @@
 from app import db
 from app.models.models import Course, ProgramCourse, Specialization
 from sqlalchemy import desc
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 def get_all_courses():
     program_courses = ProgramCourse.query.order_by(desc(ProgramCourse.id)).all()
@@ -138,3 +139,86 @@ def batch_create_courses(courses_data):
 
     db.session.commit() # Commit once after the loop, similar to specialization_service
     return created_count, errors
+
+def validate_course_identifiers(course_id, program_id, level_id, semester_id, bulletin_id):
+    # Basic validation
+    if not all([course_id, program_id, level_id, semester_id, bulletin_id]):
+        return None, "Missing one or more required identifiers (course, program, level, semester, bulletin)."
+    
+    try:
+        # 2. Build the query with all unique fields and execute with .one()
+        program_course = ProgramCourse.query.filter_by(
+            course_id=course_id,
+            program_id=program_id,
+            level_id=level_id,
+            semester_id=semester_id,
+            bulletin_id=bulletin_id
+        ).one()
+    except NoResultFound:
+        return None, "Program course not found with the specified details."
+    except MultipleResultsFound:
+        # This should ideally never happen if you have a unique constraint in your DB
+        return None, "Error: Multiple records found. Data is inconsistent."
+    
+    return program_course, None
+
+
+def update_course(program_course_id, data):
+    # Fetch the SINGLE ProgramCourse instance using its primary key.
+    program_course = ProgramCourse.query.get(program_course_id)
+    
+    # 2. Check if that instance was found.
+    if not program_course:
+        return None, "Program course not found"
+
+    course = program_course.course
+
+    # Update Course fields
+    course.code = data.get('code', course.code)
+    course.title = data.get('title', course.title)
+    course.units = data.get('unit', course.units)
+    course.course_type_id = data.get('course_type_id', course.course_type_id)
+
+    # Update ProgramCourse fields
+
+    # program_course.program_id = data.get('program_id', program_course.program_id)
+
+    # program_course.level_id = data.get('level_id', program_course.level_id)
+
+    # program_course.semester_id = data.get('semester_id', program_course.semester_id)
+
+    # program_course.bulletin_id = data.get('bulletin_id', program_course.bulletin_id)
+
+    # Update specialization
+    if 'specialization_id' in data:
+            specialization_id = data.get('specialization_id')
+            # If specialization_id is None or 0, clear the specializations
+            if not specialization_id:
+                program_course.specializations = []
+            else:
+                specialization = Specialization.query.get(specialization_id)
+                if specialization:
+                    # Replace the list of specializations with a new list containing just this one
+                    program_course.specializations = [specialization]
+
+    db.session.commit()
+    return program_course, None
+
+
+
+def delete_course(program_course_id):
+
+    program_course = ProgramCourse.query.get(program_course_id)
+
+    if not program_course:
+
+        return False, "Program course not found"
+
+
+
+    db.session.delete(program_course)
+
+    db.session.commit()
+    return True, None
+
+    

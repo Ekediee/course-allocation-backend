@@ -1,6 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, current_user
-from app.services.course_service import get_all_courses, create_course, batch_create_courses
+from app.services.course_service import get_all_courses, create_course, batch_create_courses, update_course, delete_course
 from .user_routes import _simplify_db_error
 
 course_bp = Blueprint('courses', __name__)
@@ -14,6 +14,7 @@ def handle_get_all_courses():
     courses = get_all_courses()
     response_data = [
         {
+            "program_course_id": pc.id,
             "id": pc.course.id,
             "code": pc.course.code,
             "title": pc.course.title,
@@ -98,3 +99,77 @@ def handle_batch_create_courses():
     return jsonify({
         "message": f"Successfully created {created_count} courses."
     }), 201
+
+@course_bp.route('/<int:program_course_id>', methods=['PUT'])
+@jwt_required()
+def handle_update_course(program_course_id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid data provided'}), 400
+
+    updated_course, error = update_course(program_course_id, data)
+
+    if error:
+        # Resource not found
+        if "not found" in error:
+            return jsonify({"msg": error}), 404
+    
+    # Manually construct the response to match the format in the prompt
+    response_data = {
+        "id": updated_course.course.id,
+        "code": updated_course.course.code,
+        "title": updated_course.course.title,
+        "unit": updated_course.course.units,
+        "program": {
+            "id": updated_course.program.id,
+            "name": updated_course.program.name,
+            "department": {
+                "id": updated_course.program.department.id,
+                "name": updated_course.program.department.name,
+                "school": {
+                    "id": updated_course.program.department.school.id,
+                    "name": updated_course.program.department.school.name
+                }
+            }
+        },
+        "level": {
+            "id": updated_course.level.id,
+            "name": updated_course.level.name
+        },
+        "semester": {
+            "id": updated_course.semester.id,
+            "name": updated_course.semester.name
+        },
+        "specialization": {
+            "id": updated_course.specializations[0].id if updated_course.specializations else None,
+            "name": updated_course.specializations[0].name if updated_course.specializations else 'General'
+        },
+        "bulletin": {
+            "id": updated_course.bulletin.id,
+            "name": updated_course.bulletin.name
+        },
+        "course_type": {
+            "id": updated_course.course.course_type.id if updated_course.course.course_type else None,
+            "name": updated_course.course.course_type.name if updated_course.course.course_type else None
+        }
+    }
+
+    return jsonify(response_data), 200
+
+@course_bp.route('/<int:program_course_id>', methods=['DELETE'])
+@jwt_required()
+def handle_delete_course(program_course_id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    success, error = delete_course(program_course_id)
+
+    if error:
+        if error == "Program course not found":
+            return jsonify({'error': 'Course not found'}), 404
+        return jsonify({'error': error}), 500
+        
+    return '', 204

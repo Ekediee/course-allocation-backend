@@ -19,6 +19,10 @@ def handle_get_all_courses():
             "code": pc.course.code,
             "title": pc.course.title,
             "unit": pc.course.units,
+            "course_type": {
+                "id": pc.course.course_type.id if pc.course.course_type else None,
+                "name": pc.course.course_type.name if pc.course.course_type else None
+            },
             "program": {
                 "id": pc.program.id,
                 "name": pc.program.name

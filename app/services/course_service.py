@@ -2,18 +2,19 @@ from app import db
 from app.models.models import Course, ProgramCourse, Specialization
 from sqlalchemy import desc
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+from sqlalchemy.exc import IntegrityError
 
 def get_all_courses():
     program_courses = ProgramCourse.query.order_by(desc(ProgramCourse.id)).all()
     return program_courses
 
-def validate_course_data(code, title, units, program_id, level_id, semester_id, bulletin_id):
+def validate_course_data(code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id):
     # Try to find the course by its unique code.
     course = Course.query.filter_by(code=code).first()
 
     if not course:
         # If the course does not exist, create it.
-        course = Course(code=code, title=title, units=units)
+        course = Course(code=code, title=title, units=units, course_type_id=course_type_id)
         db.session.add(course)
         db.session.flush()  # Use flush to get the course.id before commit
 
@@ -37,6 +38,7 @@ def create_course(data):
     semester_id = data.get('semester_id')
     bulletin_id = data.get('bulletin_id')
     specialization_id = data.get('specialization_id')
+    course_type_id = data.get('course_type_id')
 
     # if Course.query.filter_by(code=code).first():
     #     return None, f'Course with code "{code}" already exists'
@@ -46,7 +48,7 @@ def create_course(data):
     # db.session.flush()  # Flush to get the new_course.id
 
     course, existing_program_course = validate_course_data(
-        code, title, units, program_id, level_id, semester_id, bulletin_id
+        code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id
     )
 
     if existing_program_course:
@@ -85,11 +87,15 @@ def batch_create_courses(courses_data):
         semester_id = course_item.get('semester_id')
         level_id = course_item.get('level_id')
         specialization_id = course_item.get('specialization_id')
+        course_type_id = course_item.get('course_type_id')
 
         # Basic validation
-        if not all([code, title, units, bulletin_id, program_id, semester_id, level_id]):
+        if not all([code, title, bulletin_id, program_id, semester_id, level_id, course_type_id]):
             errors.append(f"Missing required fields in record: {course_item}")
             continue
+
+        if  units is None:
+            units = 0
 
         # if Course.query.filter_by(code=code).first():
         #     errors.append(f'Course with code "{code}" already exists,\n')
@@ -109,7 +115,7 @@ def batch_create_courses(courses_data):
         try:
             units = int(units)
             course, existing_program_course = validate_course_data(
-                code, title, units, program_id, level_id, semester_id, bulletin_id
+                code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id
             )
 
             if existing_program_course:
@@ -134,7 +140,7 @@ def batch_create_courses(courses_data):
             created_count += 1
         
         except (ValueError, TypeError) as e:
-            errors.append(f"Invalid unit value or data type error for course {code}: {e}")
+            errors.append(f"Invalid or non-numeric unit value for course {code}: '{units}'")
             continue
 
     db.session.commit() # Commit once after the loop, similar to specialization_service
@@ -174,20 +180,51 @@ def update_course(program_course_id, data):
     course = program_course.course
 
     # Update Course fields
-    course.code = data.get('code', course.code)
+    new_code = data.get('code')
+    # Check if code is being changed to a new value
+    if new_code and new_code != course.code:
+        # Check if the new code already exists in the database
+        existing_course = Course.query.filter_by(code=new_code).first()
+        if existing_course:
+            return None, f"Course code '{new_code}' already exists."
+        course.code = new_code
+
+    # Update other Course fields
     course.title = data.get('title', course.title)
     course.units = data.get('unit', course.units)
     course.course_type_id = data.get('course_type_id', course.course_type_id)
 
     # Update ProgramCourse fields
 
-    # program_course.program_id = data.get('program_id', program_course.program_id)
+    # VALIDATE UNIQUENESS OF PROGRAMCOURSE SLOT BEFORE APPLYING CHANGES
+    new_program_id = data.get('program_id', program_course.program_id)
+    new_level_id = data.get('level_id', program_course.level_id)
+    new_semester_id = data.get('semester_id', program_course.semester_id)
+    new_bulletin_id = data.get('bulletin_id', program_course.bulletin_id)
 
-    # program_course.level_id = data.get('level_id', program_course.level_id)
+    # Check if the slot is being changed
+    if (new_program_id != program_course.program_id or
+        new_level_id != program_course.level_id or
+        new_semester_id != program_course.semester_id or
+        new_bulletin_id != program_course.bulletin_id):
+        
+        # Check if the destination slot is already occupied by this course
+        existing_slot = ProgramCourse.query.filter_by(
+            course_id=course.id,
+            program_id=new_program_id,
+            level_id=new_level_id,
+            semester_id=new_semester_id,
+            bulletin_id=new_bulletin_id
+        ).first()
 
-    # program_course.semester_id = data.get('semester_id', program_course.semester_id)
+        if existing_slot:
+            return None, "This course is already assigned to the target program, level, semester, and bulletin."
 
-    # program_course.bulletin_id = data.get('bulletin_id', program_course.bulletin_id)
+        # If the slot is free, apply the changes
+        program_course.program_id = new_program_id
+        program_course.level_id = new_level_id
+        program_course.semester_id = new_semester_id
+        program_course.bulletin_id = new_bulletin_id
 
     # Update specialization
     if 'specialization_id' in data:
@@ -201,10 +238,14 @@ def update_course(program_course_id, data):
                     # Replace the list of specializations with a new list containing just this one
                     program_course.specializations = [specialization]
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        db.session.rollback()
+        # This is a fallback for any unforseen constraint violations
+        return None, f"A database integrity error occurred: {e}"
+
     return program_course, None
-
-
 
 def delete_course(program_course_id):
 

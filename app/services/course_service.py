@@ -319,6 +319,7 @@ def get_courses_by_department(department_id, semester_id):
                 if level_data["courses"]:
                     program_data["levels"].append(level_data)
 
+            program_data["levels"].sort(key=lambda d: d.get("name") or "", reverse=False)
             if program_data["levels"]:
                 semester_data["programs"].append(program_data)
 

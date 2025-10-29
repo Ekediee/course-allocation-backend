@@ -1,5 +1,6 @@
 from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, current_user
+from app.services import course_service
 from app.services.course_service import get_all_courses, create_course, batch_create_courses, update_course, delete_course
 from .user_routes import _simplify_db_error
 
@@ -25,7 +26,15 @@ def handle_get_all_courses():
             },
             "program": {
                 "id": pc.program.id,
-                "name": pc.program.name
+                "name": pc.program.name,
+                "department": {
+                    "id": pc.program.department.id,
+                    "name": pc.program.department.name,
+                    "school": {
+                        "id": pc.program.department.school.id,
+                        "name": pc.program.department.school.name
+                    }
+                }
             },
             "specialization": {
                 "id": pc.specializations[0].id if pc.specializations else None,
@@ -38,6 +47,10 @@ def handle_get_all_courses():
             "level": {
                 "id": pc.level.id,
                 "name": pc.level.name
+            },
+            "semester": {
+                "id": pc.semester.id,
+                "name": pc.semester.name
             }
         } for pc in courses
     ]
@@ -177,3 +190,27 @@ def handle_delete_course(program_course_id):
         return jsonify({'error': error}), 500
         
     return '', 204
+
+@course_bp.route('/department-courses', methods=['POST'])
+@jwt_required()
+def get_courses_by_department_route():
+    """
+     Gets all course courses for a given department and semester,
+     organized by program and level.
+    """
+    if not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized: Only superadmins and vetters can view this."}), 403
+    
+    data = request.get_json()
+    department_id = data.get('department')
+    semester_id = data.get('semester')
+
+    if not department_id or not semester_id:
+        return jsonify({"error": "department_id and semester_id are required."}), 400
+
+    courses, error = course_service.get_courses_by_department(department_id, semester_id)
+
+    if error:
+        return jsonify({"error": error}), 400
+
+    return jsonify(courses)

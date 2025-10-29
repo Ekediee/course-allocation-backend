@@ -1,6 +1,6 @@
 from app import db
-from app.models.models import Course, ProgramCourse, Specialization
-from sqlalchemy import desc
+from app.models.models import Course, ProgramCourse, Specialization, Program, Level, Semester, AcademicSession, Bulletin
+from sqlalchemy import desc 
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import IntegrityError
 
@@ -261,5 +261,71 @@ def delete_course(program_course_id):
 
     db.session.commit()
     return True, None
+
+
+def get_courses_by_department(department_id, semester_id):
+    """
+    Gets all course for a given department and semester,
+    organized by program and level.
+    """
+
+    programs = Program.query.filter_by(department_id=department_id).all()
+    semester = db.session.get(Semester, semester_id)
+    session = AcademicSession.query.filter_by(is_active=True).first()
+    bulletins = Bulletin.query.all()
+
+    if not semester or not session:
+        return None, "Invalid semester or session."
+    
+    for bulletin in bulletins:
+        bulletin_data = {"id": bulletin.id, "name": bulletin.name, "semester": []}
+
+        semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "department_name": programs[0].department.name, "programs": []}
+
+        for program in programs:
+            program_data = {"id": program.id, "name": program.name, "levels": []}
+            
+            level_ids = (
+                db.session.query(ProgramCourse.level_id)
+                .filter_by(program_id=program.id)
+                .distinct()
+                .all()
+            )
+            
+            for level_row in level_ids:
+                level_id = level_row.level_id
+                level = db.session.get(Level, level_id)
+
+                level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+                
+                program_courses = ProgramCourse.query.filter_by(
+                    program_id=program.id, 
+                    level_id=level.id,
+                    semester_id=semester.id,
+                    bulletin_id=bulletin.id
+                ).distinct()
+
+                for pc in program_courses:
+                    course = pc.course
+
+                    level_data["courses"].append({
+                        "id": str(course.id),
+                        "code": course.code,
+                        "title": course.title,
+                        "unit": course.units
+                    })
+                
+                if level_data["courses"]:
+                    program_data["levels"].append(level_data)
+
+            if program_data["levels"]:
+                semester_data["programs"].append(program_data)
+
+        if semester_data["programs"]:
+            bulletin_data["semester"].append(semester_data)
+
+    output = []
+    output.append(bulletin_data)
+    return output, None
 
     

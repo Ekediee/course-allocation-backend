@@ -1,7 +1,7 @@
 from flask_jwt_extended import jwt_required, current_user
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models.models import Department
+from app.models.models import Department, Semester, AcademicSession, DepartmentAllocationState, CourseAllocation, ProgramCourse, Program
 
 
 department_bp = Blueprint('departments', __name__)
@@ -192,3 +192,55 @@ def delete_department(id):
     db.session.commit()
 
     return jsonify({'message': 'Department deleted successfully'}), 200
+
+@department_bp.route('/departments-by-semester', methods=['GET'])
+@jwt_required()
+def get_departments_by_semester():
+    """
+    Gets all departments for each semester.
+    """
+    if not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized: Only superadmins and vetters can view this."}), 403
+
+    try:
+        semesters = Semester.query.order_by(Semester.id).all()
+        departments = Department.query.order_by(Department.name).all()
+        active_session = AcademicSession.query.filter_by(is_active=True).first()
+
+        if not active_session:
+            return jsonify({"error": "No active academic session found."}), 404
+
+        output = []
+        for semester in semesters:
+            if semester.name == "Summer Semester":
+                break # Skip summer semester
+
+            semester_data = {
+                "id": semester.id,
+                "name": semester.name,
+                "departments": []
+            }
+
+            for i, department in enumerate(departments):
+                
+                # Check if the department is not "Academic Planning" or "Registry"
+                if department.name not in ["Academic Planning", "Registry"]:
+                    
+                    hod = next((u for u in department.users if u.is_hod), None)
+
+                    semester_data["departments"].append({
+                        "sn": i + 1,
+                        "department_id": department.id,
+                        "department_name": department.name,
+                        "hod_name": hod.name if hod else ""
+                    })
+
+            semester_data["departments"].sort(key=lambda d: d.get("department_name") or "", reverse=True)
+
+            output.append(semester_data)
+
+        return jsonify(output)
+
+    except Exception as e:
+        # Log the error e
+        return jsonify({"error": "An unexpected error occurred.", "details": str(e)}), 500

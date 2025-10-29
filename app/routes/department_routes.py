@@ -235,7 +235,7 @@ def get_departments_by_semester():
                         "hod_name": hod.name if hod else ""
                     })
 
-            semester_data["departments"].sort(key=lambda d: d.get("department_name") or "", reverse=True)
+            semester_data["departments"].sort(key=lambda d: d.get("department_name") or "", reverse=False)
 
             output.append(semester_data)
 

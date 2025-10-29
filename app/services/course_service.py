@@ -276,7 +276,8 @@ def get_courses_by_department(department_id, semester_id):
 
     if not semester or not session:
         return None, "Invalid semester or session."
-    
+    output = []
+
     for bulletin in bulletins:
         bulletin_data = {"id": bulletin.id, "name": bulletin.name, "semester": []}
 
@@ -321,11 +322,11 @@ def get_courses_by_department(department_id, semester_id):
             if program_data["levels"]:
                 semester_data["programs"].append(program_data)
 
-        if semester_data["programs"]:
-            bulletin_data["semester"].append(semester_data)
+        # if semester_data["programs"]:
+        bulletin_data["semester"].append(semester_data)
 
-    output = []
-    output.append(bulletin_data)
+        output.append(bulletin_data)
+        
     return output, None
 
     

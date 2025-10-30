@@ -65,6 +65,47 @@ def submit_allocations():
         }
     }), 200
 
+@allocation_bp.route('/vet', methods=['POST'])
+@jwt_required()
+def vet_allocations():
+    """
+    Vets (approves) a submitted course allocation. Action performed by an admin.
+    """
+    # Authorization: Ensure the user has the correct role (e.g., is_admin)
+    if not current_user.is_vetter: # Assuming you have an 'is_admin' property
+        return jsonify({"error": "Unauthorized: Only administrators can vet allocations."}), 403
+
+    data = request.get_json()
+    department_id = data.get('department_id')
+    semester_id = data.get('semester_id')
+
+    # Validation: The admin must specify which department's allocation to vet
+    if not department_id or not semester_id:
+        return jsonify({"error": "department_id and semester_id are required."}), 400
+
+    admin_user_id = current_user.id
+
+    # Call the service layer to perform the action
+    state, error = allocation_service.vet_allocation(department_id, admin_user_id, semester_id)
+
+    if error:
+        # A "not found" error
+        if "not found" in error:
+            return jsonify({"error": error}), 404
+        return jsonify({"error": error}), 400
+    
+    # Return a success response
+    return jsonify({
+        "message": "Allocation vetted successfully.",
+        "vetting_details": {
+            "department_id": state.department_id,
+            "semester_id": state.semester_id,
+            "session_id": state.session_id,
+            "vetted_at": state.vetted_at.isoformat(),
+            "vetted_by": state.vetted_by.name
+        }
+    }), 200
+
 
 @allocation_bp.route('/unblock', methods=['PUT'])
 @jwt_required()
@@ -513,17 +554,17 @@ def get_courses_for_allocation_by_bulletin():
     Fetches courses for a specific program, semester, and bulletin,
     organized by level, for the purpose of allocation.
     """
-    # 1. Authorization: Ensure user is HOD
+    # Authorization: Ensure user is HOD
     if not current_user or not current_user.is_hod:
         return jsonify({'msg': 'Access denied. Only HODs can view this data.'}), 403
 
-    # 2. Get query parameters
+    # Get query parameters
     data = request.get_json()
     bulletin_name = data.get('bulletin')
     program_name = data.get('program')
     semester_name = data.get('semester')
     
-    # 4. Fetch bulletin from DB
+    # Fetch bulletin from DB
     bulletin = Bulletin.query.filter_by(name=bulletin_name).first()
     program = Program.query.filter_by(name=program_name).first()
     semester = Semester.query.filter_by(name=semester_name).first()
@@ -531,17 +572,17 @@ def get_courses_for_allocation_by_bulletin():
     if not bulletin:
         return jsonify({"error": f"Bulletin '{bulletin_name}' not found."}), 404
 
-    # 4a. Check submission status
+    # Check submission status
     is_submitted, _ = allocation_service.get_allocation_status(current_user.department_id, semester.id)
 
-    # 5. Fetch program courses based on criteria
+    # Fetch program courses based on criteria
     program_courses = ProgramCourse.query.filter_by(
         program_id=program.id,
         semester_id=semester.id,
         bulletin_id=bulletin.id
     ).all()
 
-    # 6. Structure the data by level
+    # Structure the data by level
     levels_data = {}
     for pc in program_courses:
         level = pc.level
@@ -603,20 +644,25 @@ def get_allocation_status_overview():
                 "name": semester.name,
                 "departments": []
             }
-
+            
             for i, department in enumerate(departments):
                 
-                # 1. Check if the department has submitted allocations for this semester
+                # Check if the department has submitted allocations for this semester
                 if department.name not in ["Academic Planning", "Registry"]:
                     
-                    is_submitted = DepartmentAllocationState.query.filter_by(
+                    state = DepartmentAllocationState.query.filter_by(
                         department_id=department.id,
                         semester_id=semester.id,
                         session_id=active_session.id
                     ).first()
-
-                    if is_submitted:
+                    
+                    if state:
                         status = "Allocated"
+
+                        if state.is_vetted:
+                            vet_status = "Vetted"
+                        else:
+                            vet_status = "Not Vetted"
                     else:
                         # 2. If not submitted, check if there are any partial allocations
                         has_allocations = db.session.query(CourseAllocation.id)\
@@ -632,12 +678,7 @@ def get_allocation_status_overview():
                         else:
                             status = "Not Started"
                     
-                    # semester_data["departments"].append({
-                    #     "sn": i + 1,
-                    #     "department_id": department.id,
-                    #     "department_name": department.name,
-                    #     "status": status
-                    # })
+                    
 
                     # get most recent allocation timestamp for this department (if any)
                     last_alloc_row = db.session.query(CourseAllocation.created_at)\
@@ -659,6 +700,7 @@ def get_allocation_status_overview():
                         "department_name": department.name,
                         "hod_name": hod.name if hod else "N/A",
                         "status": status,
+                        "vet_status": vet_status if state else "Not Vetted",
                         "last_allocation_at": last_alloc_at.isoformat() if last_alloc_at else None
                     })
 

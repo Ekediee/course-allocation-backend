@@ -316,10 +316,19 @@ def get_courses_by_department(department_id, semester_id):
                         "unit": course.units
                     })
                 
+                # Define a key for sorting: prioritize GST courses, then sort alphabetically.
+                def sort_key(course):
+                    code = course.get("code", "")
+                    priority = 0 if code.startswith('BU-GST') or code.startswith('GST') else 1
+                    return (priority, code)
+
+                # Sort the list of courses in-place using the custom key.
+                level_data["courses"].sort(key=sort_key)
+
                 if level_data["courses"]:
                     program_data["levels"].append(level_data)
 
-            # program_data["levels"].sort(key=lambda d: d.get("name") or "", reverse=False)
+            program_data["levels"].sort(key=lambda d: d.get("name") or "", reverse=False)
             if program_data["levels"]:
                 semester_data["programs"].append(program_data)
 

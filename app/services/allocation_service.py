@@ -51,6 +51,39 @@ def submit_allocation(department_id, user_id, semester_id):
     db.session.commit()
     return state, None
 
+def vet_allocation(department_id, admin_user_id, semester_id):
+    """
+    Marks an allocation as vetted for a department and semester in the active session.
+    """
+    session = AcademicSession.query.filter_by(is_active=True).first()
+    if not session:
+        return None, "No active academic session found."
+
+    # Find the specific allocation state record. It must exist.
+    state = DepartmentAllocationState.query.filter_by(
+        department_id=department_id,
+        session_id=session.id,
+        semester_id=semester_id
+    ).first()
+
+    if not state:
+        return None, "No allocation record found for the specified department, session, and semester."
+
+    # Enforce business rules: Must be submitted but not yet vetted.
+    if not state.is_submitted:
+        return None, "This allocation cannot be vetted because it has not been submitted yet."
+        
+    if state.is_vetted:
+        return None, "This allocation has already been vetted."
+
+    # Update the state to mark it as vetted
+    state.is_vetted = True
+    state.vetted_at = datetime.now(timezone.utc)
+    state.vetted_by_id = admin_user_id
+    
+    db.session.commit()
+    return state, None
+
 def unblock_allocation(department_id, semester_id):
     """
     Unblocks a department's allocation for a given semester in the active session.
@@ -69,6 +102,7 @@ def unblock_allocation(department_id, semester_id):
         return None, "Allocations for this department and semester are not currently submitted."
 
     state.is_submitted = False
+    state.is_vetted = False
     db.session.commit()
     
     return state, None
@@ -150,7 +184,15 @@ def get_allocations_by_department(department_id, semester_id):
     if not semester or not session:
         return None, "Invalid semester or session."
 
-    semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "department_name": programs[0].department.name, "programs": []}
+    semester_data = {
+        "sessionId": session.id, 
+        "sessionName": session.name, 
+        "id": semester.id, 
+        "name": semester.name, 
+        "department_id": programs[0].department.id,
+        "department_name": programs[0].department.name, 
+        "programs": []
+    }
 
     for program in programs:
         program_data = {"id": program.id, "name": program.name, "levels": []}

@@ -245,10 +245,15 @@ class DepartmentAllocationState(db.Model):
     submitted_at = db.Column(db.DateTime, nullable=True)
     submitted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
+    is_vetted = db.Column(db.Boolean, default=False, nullable=False)
+    vetted_at = db.Column(db.DateTime, nullable=True)
+    vetted_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
     department = db.relationship('Department', backref='allocation_states')
     session = db.relationship('AcademicSession', backref='allocation_states')
     semester = db.relationship('Semester', backref='allocation_states')
-    submitted_by = db.relationship('User', backref='submitted_allocations')
+    submitted_by = db.relationship('User', backref='submitted_allocations', foreign_keys=[submitted_by_id])
+    vetted_by = db.relationship('User', backref='vetted_allocations', foreign_keys=[vetted_by_id])
 
     __table_args__ = (
         db.UniqueConstraint('department_id', 'session_id', 'semester_id', name='_department_session_semester_uc'),

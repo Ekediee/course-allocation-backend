@@ -143,6 +143,10 @@ def update_allocation():
         return jsonify({"error": "Unauthorized: Only HODs can update allocations."}), 403
 
     data = request.get_json()
+
+    if not data:
+        return jsonify({"status": "error", "message": "Invalid data"}), 400
+    
     department_id = current_user.department_id
 
     success, error = allocation_service.update_course_allocation(data, department_id)
@@ -407,6 +411,7 @@ def get_detailed_course_list_for_allocation():
 
                     level_data["courses"].append({
                         "id": str(course.id),
+                        "programCourseId": pc.id,
                         "code": course.code,
                         "title": course.title,
                         "unit": course.units,
@@ -822,3 +827,35 @@ def get_allocation_status_overview():
     except Exception as e:
         # Log the error e
         return jsonify({"error": "An unexpected error occurred.", "details": str(e)}), 500
+    
+@allocation_bp.route('/details', methods=['GET'])
+@jwt_required()
+def get_allocation_details():
+    # Get identifiers from the query parameters
+    program_course_id = request.args.get('program_course_id', type=int)
+    semester_id = request.args.get('semester_id', type=int)
+    
+    session = AcademicSession.query.filter_by(is_active=True).first()
+    if not session:
+        return jsonify({"status": "error", "message": "No active session"}), 404
+
+    if not program_course_id or not semester_id:
+        return jsonify({"status": "error", "message": "Missing required parameters"}), 400
+
+    # Fetch all allocation records for this specific course in the current session
+    allocations = CourseAllocation.query.filter_by(
+        program_course_id=program_course_id,
+        semester_id=semester_id,
+        session_id=session.id
+    ).all()
+
+    # Format the data for the frontend
+    details = []
+    for alloc in allocations:
+        details.append({
+            "groupName": alloc.group_name,
+            "lecturer": alloc.lecturer_profile.user_account[0].name if alloc.lecturer_profile else None,
+            "classSize": alloc.class_size
+        })
+
+    return jsonify({"status": "success", "data": details})

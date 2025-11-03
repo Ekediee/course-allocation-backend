@@ -127,44 +127,61 @@ def update_course_allocation(data_list, department_id):
 
     try:
         # Delete existing allocations for the course
-        pc = ProgramCourse.query.filter_by(
-            program_id=first_item.get('programId'),
-            course_id=first_item.get('courseId'),
-            level_id=first_item.get('levelId'),
-            semester_id=semester_id
-        ).first()
-        
-        if pc:
-            CourseAllocation.query.filter_by(program_course_id=pc.id, session_id=session.id).delete()
+        first_item = data_list[0]
+        program_id = first_item['programId']
+        course_id = first_item['courseId']
+        level_id = first_item['levelId']
+        semester_id = first_item.get('semesterId')
 
-        # Insert new allocations
-        for data in data_list:
-            lecturer_name = data.get("allocatedTo")
+        # Find the ProgramCourse ID, which links everything
+        program_course = ProgramCourse.query.filter_by(
+            program_id=program_id,
+            course_id=course_id,
+            level_id=level_id
+            # You might also need semester_id here depending on your ProgramCourse model
+        ).first()
+
+        if not program_course:
+            return None, "Course not found in program"
+        
+        # Verify that the program of the course belongs to the HOD's department.
+        if program_course.program.department_id != department_id:
+            return None, "Unauthorized: You do not have permission to update this course."
+
+        # 2. Delete all existing allocations for this course/semester/session
+        CourseAllocation.query.filter_by(
+            program_course_id=program_course.id,
+            semester_id=semester_id,
+            session_id=session.id
+        ).delete()
+        
+        # 3. Create the new allocation records from the submitted data
+        for item in data_list:
+            lecturer_name = item.get("allocatedTo")
             if not lecturer_name: # Skip if no lecturer is assigned
                 continue
-
+            
             lecturer = (
                 Lecturer.query.join(User)
-                .filter(User.name == lecturer_name, Lecturer.department_id == department_id)
+                .filter(User.name == lecturer_name)
                 .first()
             )
+            
             if not lecturer:
-                raise ValueError(f"Lecturer '{lecturer_name}' not found.")
+                continue # Or handle error
 
-            allocation = CourseAllocation(
-                program_course_id=pc.id,
+            new_allocation = CourseAllocation(
+                program_course_id=program_course.id,
                 session_id=session.id,
                 semester_id=semester_id,
                 lecturer_id=lecturer.id,
-                source_bulletin_id=pc.bulletin_id,
-                is_de_allocation=False,
-                group_name=data.get("groupName"),
-                is_lead=(data.get("groupName", "").lower() == "group a"),
-                is_allocated=data.get("isAllocated", False),
-                class_size=data.get("classSize", 0)
+                group_name=item['groupName'],
+                class_size=item['classSize'],
+                is_allocated=True
             )
-            db.session.add(allocation)
-        
+            db.session.add(new_allocation)
+
+        # 4. Commit the transaction (deletes and adds happen together)
         db.session.commit()
         return True, None
 

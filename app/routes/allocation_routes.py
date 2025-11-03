@@ -10,6 +10,7 @@ from app.models import (
 )
 
 import app.services.allocation_service as allocation_service
+from collections import defaultdict
 
 
 allocation_bp = Blueprint('allocations', __name__)
@@ -349,11 +350,11 @@ def get_detailed_course_list_for_allocation():
     ).all()
 
     # Create a fast lookup dictionary (map).
-    # The key is a tuple (program_course_id, semester_id) for unique identification.
-    allocations_map = {
-        (alloc.program_course_id, alloc.semester_id): alloc
-        for alloc in all_allocations_for_session
-    }
+    allocations_map = defaultdict(list)
+    for alloc in all_allocations_for_session:
+        key = (alloc.program_course_id, alloc.semester_id)
+        
+        allocations_map[key].append(alloc)
 
 
     output = []
@@ -392,15 +393,25 @@ def get_detailed_course_list_for_allocation():
                     course = pc.course
                     
                     # Check if the allocation exists for the semester and course.
-                    allocation = allocations_map.get((pc.id, semester.id))
+                    allocations = allocations_map.get((pc.id, semester.id))
+
+                    # Process the list to get all lecturer names.
+                    allocated_to_names = []
+                    if allocations:
+                        # Create a list of names, safely checking for profiles
+                        allocated_to_names = [
+                            alloc.lecturer_profile.user_account[0].name
+                            for alloc in allocations 
+                            if alloc.lecturer_profile and alloc.lecturer_profile.user_account
+                        ]
 
                     level_data["courses"].append({
                         "id": str(course.id),
                         "code": course.code,
                         "title": course.title,
                         "unit": course.units,
-                        "isAllocated": bool(allocation),
-                        "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation and allocation.lecturer_profile else None
+                        "isAllocated": bool(allocations),
+                        "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
                     })
 
                 if level_data["courses"]:

@@ -459,6 +459,33 @@ def get_lecturers_by_department():
 
     return jsonify(data), 200
 
+@allocation_bp.route('/allocate/lecturers/all', methods=['GET'])
+@jwt_required()
+def get_lecturers():
+    department = current_user.lecturer.department
+    
+
+    if not current_user or not current_user.is_hod:
+        return jsonify({'error': 'Access denied. Only HODs can view this data.'}), 403
+
+    # Get department from linked lecturer
+    if not current_user.lecturer:
+        return jsonify({'error': 'User is not linked to a lecturer profile.'}), 400
+
+    # department = user.lecturer.department
+    lecturers = Lecturer.query.all()
+
+    data = [{
+        "id": lec.id,
+        "staff_id": lec.staff_id,
+        "name": lec.user_account[0].name if lec.user_account else "Unlinked",
+        "rank": lec.rank,
+        "qualification": lec.qualification,
+        "phone": lec.phone
+    } for lec in lecturers]
+
+    return jsonify(data), 200
+
 def is_number(value):
     try:
         float(value)

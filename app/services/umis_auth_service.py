@@ -38,7 +38,8 @@ def auth_user(data):
         if not token:
             return None, "No access token received from UMIS"
 
-        id = "DICK2010"
+        id = "EBIE222"
+        # id = "DICK2010"
         # id = "AARO123"
 
         instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={id}'

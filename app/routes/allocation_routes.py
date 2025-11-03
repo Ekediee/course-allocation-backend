@@ -493,6 +493,108 @@ def is_number(value):
     except ValueError:
         return False
 
+# @allocation_bp.route("/allocate", methods=["POST"])
+# @jwt_required()
+# def allocate_course():
+#     # Validate HOD access
+#     if not current_user or not current_user.is_hod:
+#         return jsonify({"error": "Unauthorized: Only HODs can allocate courses."}), 403
+
+#     data_list = request.get_json()
+    
+#     # 1. Find active session
+#     session = AcademicSession.query.filter_by(is_active=True).first()
+#     if not session:
+#         return jsonify({"error": "No active academic session found."}),
+    
+#     results = []
+
+#     for index, data in enumerate(data_list):
+#         try:    
+#             if is_number(data.get("semesterId")) is False:
+#                 semester = Semester.query.filter_by(name=data.get("semesterId")).first()
+#                 semester_id = semester.id
+#             else:
+#                 semester_id = int(data.get("semesterId"))
+
+#             if is_number(data.get("programId")) is False:
+#                 program = Program.query.filter_by(name=data.get("programId")).first()
+#                 program_id = program.id
+#             else:
+#                 program_id = int(data.get("programId"))
+#             level_id = int(data.get("levelId"))
+#             course_id = int(data.get("courseId"))
+#             class_size = int(data.get("classSize", 0))
+#             is_allocated = data.get("isAllocated", False)
+#             group_name = data.get("groupName")
+#             lecturer_name = data.get("allocatedTo")
+
+#             # 2. Find program_course
+#             pc = ProgramCourse.query.filter_by(
+#                 program_id=program_id,
+#                 course_id=course_id,
+#                 level_id=level_id,
+#                 semester_id=semester_id
+#             ).first()
+            
+#             if not pc:
+#                 return jsonify({
+#                     "status": "error",
+#                     "message": "ProgramCourse not found for given input."
+#                 }), 404
+
+#             # 3. Resolve lecturer by full name
+#             lecturer = (
+#                 Lecturer.query.join(User)
+#                 .filter(User.name == lecturer_name, Lecturer.department_id == current_user.department_id)
+#                 .first()
+#             )
+#             if not lecturer:
+#                 return jsonify({
+#                     "status": "error",
+#                     "message": f"Lecturer '{lecturer_name}' not found."
+#                 }), 404
+
+#             # 4. Check if this allocation already exists (same session, program_course, group_name)
+#             existing = CourseAllocation.query.filter_by(
+#                 program_course_id=pc.id,
+#                 session_id=session.id,
+#                 group_name=group_name
+#             ).first()
+
+#             if existing:
+#                 return jsonify({"error": f"Allocation already exists for group '{group_name}'"}), 409
+            
+#             # 5. Create new CourseAllocation
+#             allocation = CourseAllocation(
+#                 program_course_id=pc.id,
+#                 session_id=session.id,
+#                 semester_id=semester_id,
+#                 lecturer_id=lecturer.id,
+#                 source_bulletin_id=pc.bulletin_id,  # Assuming bulletin_id is available in ProgramCourse
+#                 is_de_allocation=False,       # Assuming this is a normal allocation
+#                 group_name=group_name,
+#                 is_lead=(group_name.lower() == "group a"),
+#                 is_allocated=is_allocated,
+#                 class_size=class_size
+#             )
+            
+#             db.session.add(allocation)
+#             results.append({
+#                 "index": index,
+#                 "message": f"Course allocated successfully to {lecturer_name} for group '{group_name}'"
+#             })
+
+#         except Exception as e:
+#             results.append({"index": index, "error": str(e)})
+
+#     db.session.commit()
+
+#     return jsonify({
+#         "status": "success",
+#         "message": "Course allocated successfully",
+#     }), 201
+
 @allocation_bp.route("/allocate", methods=["POST"])
 @jwt_required()
 def allocate_course():
@@ -501,52 +603,41 @@ def allocate_course():
         return jsonify({"error": "Unauthorized: Only HODs can allocate courses."}), 403
 
     data_list = request.get_json()
+    if not isinstance(data_list, list) or not data_list:
+        return jsonify({"error": "Request body must be a non-empty list of allocations."}), 400
     
-    # 1. Find active session
+    # Find active session
     session = AcademicSession.query.filter_by(is_active=True).first()
     if not session:
-        return jsonify({"error": "No active academic session found."}),
-    
-    results = []
+        return jsonify({"error": "No active academic session found."}), 400
 
-    for index, data in enumerate(data_list):
-        try:    
-            if is_number(data.get("semesterId")) is False:
-                semester = Semester.query.filter_by(name=data.get("semesterId")).first()
-                semester_id = semester.id
-            else:
-                semester_id = int(data.get("semesterId"))
+    try:
+        allocations_to_create = []
 
-            if is_number(data.get("programId")) is False:
-                program = Program.query.filter_by(name=data.get("programId")).first()
-                program_id = program.id
-            else:
-                program_id = int(data.get("programId"))
+        # VALIDATE ALL INCOMING DATA FIRST
+        for index, data in enumerate(data_list):
+            semester_id = int(data.get("semesterId"))
+            program_id = int(data.get("programId"))
             level_id = int(data.get("levelId"))
             course_id = int(data.get("courseId"))
-            class_size = int(data.get("classSize", 0))
-            is_allocated = data.get("isAllocated", False)
+            lecturer_name = data.get("allocatedTo") # Assuming frontend now sends ID
             group_name = data.get("groupName")
-            lecturer_name = data.get("allocatedTo")
 
-            # 2. Find program_course
+            # Find program_course
             pc = ProgramCourse.query.filter_by(
                 program_id=program_id,
                 course_id=course_id,
                 level_id=level_id,
                 semester_id=semester_id
             ).first()
-            
             if not pc:
-                return jsonify({
-                    "status": "error",
-                    "message": "ProgramCourse not found for given input."
-                }), 404
+                # Use raise to fail the entire transaction immediately
+                raise ValueError(f"Error for '{group_name}': Course not found in the specified program/level.")
 
-            # 3. Resolve lecturer by full name
+            # Resolve lecturer by ID
             lecturer = (
                 Lecturer.query.join(User)
-                .filter(User.name == lecturer_name, Lecturer.department_id == current_user.department_id)
+                .filter(User.name == lecturer_name)
                 .first()
             )
             if not lecturer:
@@ -555,45 +646,55 @@ def allocate_course():
                     "message": f"Lecturer '{lecturer_name}' not found."
                 }), 404
 
-            # 4. Check if this allocation already exists (same session, program_course, group_name)
+            # Check for existing allocation
             existing = CourseAllocation.query.filter_by(
                 program_course_id=pc.id,
                 session_id=session.id,
                 group_name=group_name
             ).first()
-
             if existing:
-                return jsonify({"error": f"Allocation already exists for group '{group_name}'"}), 409
-            
-            # 5. Create new CourseAllocation
-            allocation = CourseAllocation(
-                program_course_id=pc.id,
-                session_id=session.id,
-                semester_id=semester_id,
-                lecturer_id=lecturer.id,
-                source_bulletin_id=pc.bulletin_id,  # Assuming bulletin_id is available in ProgramCourse
-                is_de_allocation=False,       # Assuming this is a normal allocation
-                group_name=group_name,
-                is_lead=(group_name.lower() == "group a"),
-                is_allocated=is_allocated,
-                class_size=class_size
-            )
-            
-            db.session.add(allocation)
-            results.append({
-                "index": index,
-                "message": f"Course allocated successfully to {lecturer_name} for group '{group_name}'"
-            })
+                raise ValueError(f"Error for '{group_name}': An allocation already exists for this group.")
 
-        except Exception as e:
-            results.append({"index": index, "error": str(e)})
+            # If all checks pass, prepare the allocation object
+            allocation_data = {
+                "program_course_id": pc.id,
+                "session_id": session.id,
+                "semester_id": semester_id,
+                "lecturer_id": lecturer.id,
+                "source_bulletin_id": pc.bulletin_id,
+                "group_name": group_name,
+                "is_lead": (group_name.lower() == "group a"),
+                "is_allocated": data.get("isAllocated", False),
+                "class_size": int(data.get("classSize", 0))
+            }
+            allocations_to_create.append(allocation_data)
 
-    db.session.commit()
+        # CREATE ALL RECORDS IF VALIDATION PASSED
+        if not allocations_to_create:
+             raise ValueError("No valid allocations to create.")
 
-    return jsonify({
-        "status": "success",
-        "message": "Course allocated successfully",
-    }), 201
+        for data in allocations_to_create:
+            new_allocation = CourseAllocation(**data)
+            db.session.add(new_allocation)
+
+        # Commit the transaction once, after all records are added
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Successfully allocated course to {len(allocations_to_create)} group(s).",
+        }), 201
+
+    except (ValueError, KeyError) as e:
+        # Catch specific validation errors
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        # Catch unexpected server errors
+        db.session.rollback()
+        # It's good practice to log the full error here
+        # logger.error(f"Unexpected error during allocation: {e}")
+        return jsonify({"status": "error", "message": "An unexpected server error occurred."}), 500
 
 @allocation_bp.route('/list-by-specialization', methods=['GET'])
 @jwt_required()

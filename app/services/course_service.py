@@ -263,12 +263,87 @@ def delete_course(program_course_id):
     return True, None
 
 
+# def get_courses_by_department(department_id, semester_id):
+#     """
+#     Gets all course for a given department and semester,
+#     organized by program and level.
+#     """
+
+#     programs = Program.query.filter_by(department_id=department_id).all()
+#     semester = db.session.get(Semester, semester_id)
+#     session = AcademicSession.query.filter_by(is_active=True).first()
+#     bulletins = Bulletin.query.all()
+
+#     if not semester or not session:
+#         return None, "Invalid semester or session."
+#     output = []
+
+#     for bulletin in bulletins:
+#         bulletin_data = {"id": bulletin.id, "name": bulletin.name, "semester": []}
+
+#         semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "department_name": programs[0].department.name, "programs": []}
+
+#         for program in programs:
+#             program_data = {"id": program.id, "name": program.name, "levels": []}
+            
+#             level_ids = (
+#                 db.session.query(ProgramCourse.level_id)
+#                 .filter_by(program_id=program.id)
+#                 .distinct()
+#                 .all()
+#             )
+            
+#             for level_row in level_ids:
+#                 level_id = level_row.level_id
+#                 level = db.session.get(Level, level_id)
+
+#                 level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+                
+#                 program_courses = ProgramCourse.query.filter_by(
+#                     program_id=program.id, 
+#                     level_id=level.id,
+#                     semester_id=semester.id,
+#                     bulletin_id=bulletin.id
+#                 ).distinct()
+
+#                 for pc in program_courses:
+#                     course = pc.course
+
+#                     level_data["courses"].append({
+#                         "id": str(course.id),
+#                         "code": course.code,
+#                         "title": course.title,
+#                         "unit": course.units
+#                     })
+                
+#                 # Define a key for sorting: prioritize GST courses, then sort alphabetically.
+#                 def sort_key(course):
+#                     code = course.get("code", "")
+#                     priority = 0 if code.startswith('BU-GST') or code.startswith('GST') else 1
+#                     return (priority, code)
+
+#                 # Sort the list of courses in-place using the custom key.
+#                 level_data["courses"].sort(key=sort_key)
+
+#                 if level_data["courses"]:
+#                     program_data["levels"].append(level_data)
+
+#             program_data["levels"].sort(key=lambda d: d.get("name") or "", reverse=False)
+#             if program_data["levels"]:
+#                 semester_data["programs"].append(program_data)
+
+#         # if semester_data["programs"]:
+#         bulletin_data["semester"].append(semester_data)
+
+#         output.append(bulletin_data)
+        
+#     return output, None
+
 def get_courses_by_department(department_id, semester_id):
     """
-    Gets all course for a given department and semester,
-    organized by program and level.
+    Gets all courses for a given department and semester, organized by
+    program, level, and specialization.
     """
-
     programs = Program.query.filter_by(department_id=department_id).all()
     semester = db.session.get(Semester, semester_id)
     session = AcademicSession.query.filter_by(is_active=True).first()
@@ -276,28 +351,32 @@ def get_courses_by_department(department_id, semester_id):
 
     if not semester or not session:
         return None, "Invalid semester or session."
+    
     output = []
+
+    # Define a key for sorting courses: prioritize GST, then sort by code.
+    def course_sort_key(course):
+        code = course.get("code", "")
+        priority = 0 if code.startswith('BU-GST') or code.startswith('GST') else 1
+        return (priority, code)
 
     for bulletin in bulletins:
         bulletin_data = {"id": bulletin.id, "name": bulletin.name, "semester": []}
-
         semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "department_name": programs[0].department.name, "programs": []}
 
         for program in programs:
             program_data = {"id": program.id, "name": program.name, "levels": []}
             
-            level_ids = (
-                db.session.query(ProgramCourse.level_id)
-                .filter_by(program_id=program.id)
-                .distinct()
-                .all()
-            )
+            level_ids = db.session.query(ProgramCourse.level_id)\
+                .filter_by(program_id=program.id)\
+                .distinct().all()
             
             for level_row in level_ids:
                 level_id = level_row.level_id
                 level = db.session.get(Level, level_id)
 
-                level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+                # Initialize with a 'specializations' list instead of a 'courses' list.
+                level_data = {"id": str(level.id), "name": f"{level.name} Level", "specializations": []}
                 
                 program_courses = ProgramCourse.query.filter_by(
                     program_id=program.id, 
@@ -306,35 +385,56 @@ def get_courses_by_department(department_id, semester_id):
                     bulletin_id=bulletin.id
                 ).distinct()
 
+                # Create temporary structures to group courses by specialization.
+                general_courses = []
+                specialization_map = {} # Key: specialization_id, Value: specialization object
+
                 for pc in program_courses:
                     course = pc.course
-
-                    level_data["courses"].append({
+                    course_details = {
                         "id": str(course.id),
                         "code": course.code,
                         "title": course.title,
                         "unit": course.units
+                    }
+
+                    # Group courses into "General" or their specific specializations.
+                    if not pc.specializations:
+                        general_courses.append(course_details)
+                    else:
+                        for spec in pc.specializations:
+                            if spec.id not in specialization_map:
+                                specialization_map[spec.id] = {
+                                    "id": spec.id,
+                                    "name": spec.name,
+                                    "courses": []
+                                }
+                            specialization_map[spec.id]["courses"].append(course_details)
+                
+                # Assemble the final specializations list for the level.
+                # Add the "General" category first if it has any courses.
+                if general_courses:
+                    general_courses.sort(key=course_sort_key) # Sort courses within the group
+                    level_data["specializations"].append({
+                        "id": "general",
+                        "name": "General",
+                        "courses": general_courses
                     })
                 
-                # Define a key for sorting: prioritize GST courses, then sort alphabetically.
-                def sort_key(course):
-                    code = course.get("code", "")
-                    priority = 0 if code.startswith('BU-GST') or code.startswith('GST') else 1
-                    return (priority, code)
+                # Add the other specialization categories.
+                for spec_id in sorted(specialization_map.keys()): # Sort specializations by ID
+                    spec_data = specialization_map[spec_id]
+                    spec_data["courses"].sort(key=course_sort_key) # Sort courses within the group
+                    level_data["specializations"].append(spec_data)
 
-                # Sort the list of courses in-place using the custom key.
-                level_data["courses"].sort(key=sort_key)
-
-                if level_data["courses"]:
+                if level_data["specializations"]:
                     program_data["levels"].append(level_data)
 
             program_data["levels"].sort(key=lambda d: d.get("name") or "", reverse=False)
             if program_data["levels"]:
                 semester_data["programs"].append(program_data)
 
-        # if semester_data["programs"]:
         bulletin_data["semester"].append(semester_data)
-
         output.append(bulletin_data)
         
     return output, None

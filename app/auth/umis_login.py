@@ -25,6 +25,7 @@ def login():
     # Authenticate with UMIS
     instructor_data, error = auth_user(data)
     if error:
+        print(error)
         return jsonify({"msg": f"UMIS authentication failed: {error}"}), 401
     
     if not instructor_data:

@@ -402,11 +402,11 @@ def get_detailed_course_list_for_allocation():
                         "isAllocated": bool(allocation),
                         "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation and allocation.lecturer_profile else None
                     })
-                
-                level_data.sort(key=lambda d: d.get("name") or "", reverse=False)
 
                 if level_data["courses"]:
                     program_data["levels"].append(level_data)
+
+            program_data["levels"].sort(key=lambda level: int(level['name'].split()[0]))    
 
             if program_data["levels"]:
                 semester_data["programs"].append(program_data)

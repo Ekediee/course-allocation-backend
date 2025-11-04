@@ -200,10 +200,27 @@ def get_allocations_by_department(department_id, semester_id):
 
     if not semester or not session:
         return None, "Invalid semester or session."
+    
+    state = DepartmentAllocationState.query.filter_by(
+        department_id=department_id,
+        session_id=session.id,
+        semester_id=semester.id
+    ).first()
+
+    if not state or not state.is_submitted:
+        vetted = False
+        submitted = False
+
+    
+    vetted = state.is_vetted
+    submitted = state.is_submitted
+    db.session.commit()
 
     semester_data = {
         "sessionId": session.id, 
-        "sessionName": session.name, 
+        "sessionName": session.name,
+        "vetted": vetted,
+        "submitted": submitted,
         "id": semester.id, 
         "name": semester.name, 
         "department_id": programs[0].department.id,

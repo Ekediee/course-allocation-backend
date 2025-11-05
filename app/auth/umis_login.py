@@ -26,10 +26,10 @@ def login():
     instructor_data, error = auth_user(data)
     if error:
         print(error)
-        return jsonify({"msg": f"UMIS authentication failed: {error}"}), 401
+        return jsonify({"msg": f"UMIS authentication failed: {error}"}), 400
     
     if not instructor_data:
-        return jsonify({"msg": "UMIS authentication failed: Invalid credentials or user not found"}), 401
+        return jsonify({"msg": "UMIS authentication failed: Invalid credentials or user not found"}), 400
 
     # Extract data from UMIS response
     instructor_name = instructor_data.get('instructorname')

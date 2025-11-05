@@ -137,8 +137,8 @@ def update_course_allocation(data_list, department_id):
         program_course = ProgramCourse.query.filter_by(
             program_id=program_id,
             course_id=course_id,
-            level_id=level_id
-            # You might also need semester_id here depending on your ProgramCourse model
+            level_id=level_id,
+            semester_id=semester_id
         ).first()
 
         if not program_course:
@@ -148,14 +148,14 @@ def update_course_allocation(data_list, department_id):
         if program_course.program.department_id != department_id:
             return None, "Unauthorized: You do not have permission to update this course."
 
-        # 2. Delete all existing allocations for this course/semester/session
+        # Delete all existing allocations for this course/semester/session
         CourseAllocation.query.filter_by(
             program_course_id=program_course.id,
             semester_id=semester_id,
             session_id=session.id
         ).delete()
         
-        # 3. Create the new allocation records from the submitted data
+        # Create the new allocation records from the submitted data
         for item in data_list:
             lecturer_name = item.get("allocatedTo")
             if not lecturer_name: # Skip if no lecturer is assigned
@@ -168,20 +168,23 @@ def update_course_allocation(data_list, department_id):
             )
             
             if not lecturer:
-                continue # Or handle error
+                return None, f"Lecturer '{lecturer_name}' not found."
+                
 
             new_allocation = CourseAllocation(
                 program_course_id=program_course.id,
                 session_id=session.id,
                 semester_id=semester_id,
                 lecturer_id=lecturer.id,
+                source_bulletin_id=program_course.bulletin_id,
                 group_name=item['groupName'],
-                class_size=item['classSize'],
-                is_allocated=True
+                is_lead=item['groupName'].lower() == "group a",
+                is_allocated=item['isAllocated'],
+                class_size=item['classSize']
             )
             db.session.add(new_allocation)
 
-        # 4. Commit the transaction (deletes and adds happen together)
+        # Commit the transaction (deletes and adds happen together)
         db.session.commit()
         return True, None
 

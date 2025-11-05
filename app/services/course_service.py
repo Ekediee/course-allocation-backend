@@ -173,7 +173,7 @@ def update_course(program_course_id, data):
     # Fetch the SINGLE ProgramCourse instance using its primary key.
     program_course = ProgramCourse.query.get(program_course_id)
     
-    # 2. Check if that instance was found.
+    # Check if that instance was found.
     if not program_course:
         return None, "Program course not found"
 
@@ -190,9 +190,22 @@ def update_course(program_course_id, data):
         course.code = new_code
 
     # Update other Course fields
-    course.title = data.get('title', course.title)
-    course.units = data.get('unit', course.units)
-    course.course_type_id = data.get('course_type_id', course.course_type_id)
+    title = data.get('title', course.title)
+    units = data.get('unit', course.units)
+    course_type_id = data.get('course_type_id', course.course_type_id)
+
+    if not title:
+        return None, "Course title is missing and cannot be empty."
+    
+    if units is None:
+        return None, "Course unit is missing and cannot be empty."
+    
+    if not course_type_id:
+        return None, "Course type is missing and cannot be empty."
+    
+    course.title = title
+    course.units = units
+    course.course_type_id = course_type_id
 
     # Update ProgramCourse fields
 

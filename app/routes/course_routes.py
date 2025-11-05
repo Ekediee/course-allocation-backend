@@ -132,7 +132,10 @@ def handle_update_course(program_course_id):
     if error:
         # Resource not found
         if "not found" in error:
-            return jsonify({"msg": error}), 404
+            return jsonify({"error": error}), 404
+        
+        if "is missing" in error:
+            return jsonify({"error": error}), 404
     
     # Manually construct the response to match the format in the prompt
     response_data = {

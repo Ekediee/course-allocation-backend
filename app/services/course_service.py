@@ -8,18 +8,41 @@ def get_all_courses():
     program_courses = ProgramCourse.query.order_by(desc(ProgramCourse.id)).all()
     return program_courses
 
-def validate_course_data(code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id):
-    # Try to find the course by its unique code.
-    course = Course.query.filter_by(code=code).first()
+# def validate_course_data(code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id):
+#     # Try to find the course by its unique code.
+#     course = Course.query.filter_by(code=code).first()
 
+#     if not course:
+#         # If the course does not exist, create it.
+#         course = Course(code=code, title=title, units=units, course_type_id=course_type_id)
+#         db.session.add(course)
+#         db.session.flush()  # Use flush to get the course.id before commit
+
+#     # Check if this specific association already exists
+#     existing_program_course = ProgramCourse.query.filter_by(
+#         course_id=course.id,
+#         program_id=program_id,
+#         level_id=level_id,
+#         semester_id=semester_id,
+#         bulletin_id=bulletin_id
+#     ).first()
+
+#     return course, existing_program_course
+
+def get_or_create_course_and_link(code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id):
+    """
+    Finds or creates the base Course and the ProgramCourse link.
+    Returns both objects.
+    """
+    # Find or create the Course object
+    course = Course.query.filter_by(code=code).first()
     if not course:
-        # If the course does not exist, create it.
         course = Course(code=code, title=title, units=units, course_type_id=course_type_id)
         db.session.add(course)
-        db.session.flush()  # Use flush to get the course.id before commit
+        db.session.flush()  # Flush to get the ID for the next step
 
     # Check if this specific association already exists
-    existing_program_course = ProgramCourse.query.filter_by(
+    program_course = ProgramCourse.query.filter_by(
         course_id=course.id,
         program_id=program_id,
         level_id=level_id,
@@ -27,9 +50,66 @@ def validate_course_data(code, title, units, program_id, level_id, semester_id, 
         bulletin_id=bulletin_id
     ).first()
 
-    return course, existing_program_course
+    # Create the ProgramCourse link if not existing
+    if not program_course:
+        program_course = ProgramCourse(
+            course_id=course.id,
+            program_id=program_id,
+            level_id=level_id,
+            semester_id=semester_id,
+            bulletin_id=bulletin_id
+        )
+        db.session.add(program_course)
+    
+    return course, program_course
+
+# def create_course(data):
+#     code = data.get('code')
+#     title = data.get('title')
+#     units = data.get('unit')
+#     program_id = data.get('program_id')
+#     level_id = data.get('level_id')
+#     semester_id = data.get('semester_id')
+#     bulletin_id = data.get('bulletin_id')
+#     specialization_id = data.get('specialization_id')
+#     course_type_id = data.get('course_type_id')
+
+#     # if Course.query.filter_by(code=code).first():
+#     #     return None, f'Course with code "{code}" already exists'
+
+#     # new_course = Course(code=code, title=title, units=units)
+#     # db.session.add(new_course)
+#     # db.session.flush()  # Flush to get the new_course.id
+
+#     course, existing_program_course = validate_course_data(
+#         code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id
+#     )
+
+#     if existing_program_course:
+#         # If the association already exists, return an error.
+#         return None, f'This course ({code}) has already been added to this program for the selected bulletin and semester.'
+
+#     # Create the new ProgramCourse association
+#     program_course = ProgramCourse(
+#         course_id=course.id,
+#         program_id=program_id,
+#         level_id=level_id,
+#         semester_id=semester_id,
+#         bulletin_id=bulletin_id
+#     )
+
+#     if specialization_id:
+#         specialization = Specialization.query.get(specialization_id)
+#         if specialization:
+#             program_course.specializations.append(specialization)
+
+#     db.session.add(program_course)
+#     db.session.commit()
+
+#     return course, None
 
 def create_course(data):
+    # Get all the fields from the request data
     code = data.get('code')
     title = data.get('title')
     units = data.get('unit')
@@ -37,114 +117,194 @@ def create_course(data):
     level_id = data.get('level_id')
     semester_id = data.get('semester_id')
     bulletin_id = data.get('bulletin_id')
-    specialization_id = data.get('specialization_id')
+    specialization_id = data.get('specialization_id') # This can be None
     course_type_id = data.get('course_type_id')
 
-    # if Course.query.filter_by(code=code).first():
-    #     return None, f'Course with code "{code}" already exists'
-
-    # new_course = Course(code=code, title=title, units=units)
-    # db.session.add(new_course)
-    # db.session.flush()  # Flush to get the new_course.id
-
-    course, existing_program_course = validate_course_data(
+    # Get the core Course and the ProgramCourse link (either existing or new)
+    course, program_course = get_or_create_course_and_link(
         code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id
     )
 
-    if existing_program_course:
-        # If the association already exists, return an error.
-        return None, f'This course ({code}) has already been added to this program for the selected bulletin and semester.'
-
-    # Create the new ProgramCourse association
-    program_course = ProgramCourse(
-        course_id=course.id,
-        program_id=program_id,
-        level_id=level_id,
-        semester_id=semester_id,
-        bulletin_id=bulletin_id
-    )
-
+    # Validate if specialization needs to be added
     if specialization_id:
         specialization = Specialization.query.get(specialization_id)
-        if specialization:
-            program_course.specializations.append(specialization)
+        if not specialization:
+            return None, f'Specialization with ID {specialization_id} not found.'
 
-    db.session.add(program_course)
+        # Check if this specialization is ALREADY in the list for this course link
+        if specialization in program_course.specializations:
+            return None, f'This course ({code}) has already been added to the "{specialization.name}" specialization.'
+        
+        # If we get here, it's a new, valid link. Add it.
+        program_course.specializations.append(specialization)
+    else:
+        # This is a "General" or "Core" course with no specialization.
+        # The validation is simply to check if it has been added before without a specialization.
+        # This case is implicitly handled by the existence of the program_course record
+        # and the fact that we're not adding a specialization.
+        # You might want to add a check here if a course can't be both general and specialized.
+        pass
+
     db.session.commit()
 
     return course, None
 
+# def batch_create_courses(courses_data):
+#     created_count = 0
+#     errors = []
+
+#     for course_item in courses_data:
+#         code = course_item.get('code')
+#         title = course_item.get('title')
+#         units = course_item.get('unit') 
+#         bulletin_id = course_item.get('bulletin_id')
+#         program_id = course_item.get('program_id')
+#         semester_id = course_item.get('semester_id')
+#         level_id = course_item.get('level_id')
+#         specialization_id = course_item.get('specialization_id')
+#         course_type_id = course_item.get('course_type_id')
+
+#         # Basic validation
+#         if not all([code, title, bulletin_id, program_id, semester_id, level_id, course_type_id]):
+#             errors.append(f"Missing required fields in record: {course_item}")
+#             continue
+
+#         if  units is None:
+#             units = 0
+
+#         # if Course.query.filter_by(code=code).first():
+#         #     errors.append(f'Course with code "{code}" already exists,\n')
+#         #     continue
+
+#         # try:
+#         #     units = int(units)
+#         # except (ValueError, TypeError):
+#         #     errors.append(f"Invalid unit value for course {code}: {units}")
+#         #     continue
+
+#         # # Create Course and ProgramCourse
+#         # new_course = Course(code=code, title=title, units=units)
+#         # db.session.add(new_course)
+#         # db.session.flush() # Flush to get the new_course.id
+
+#         try:
+#             units = int(units)
+#             course, existing_program_course = validate_course_data(
+#                 code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id
+#             )
+
+#             if existing_program_course:
+#                 errors.append(f'Course "{code}" is already in this program for the selected semester/bulletin.')
+#                 continue
+        
+#             # Create the new ProgramCourse association
+#             program_course = ProgramCourse(
+#                 course_id=course.id,
+#                 program_id=program_id,
+#                 level_id=level_id,
+#                 semester_id=semester_id,
+#                 bulletin_id=bulletin_id
+#             )
+
+#             if specialization_id:
+#                 specialization = Specialization.query.get(specialization_id)
+#                 if specialization:
+#                     program_course.specializations.append(specialization)
+
+#             db.session.add(program_course)
+#             created_count += 1
+        
+#         except (ValueError, TypeError) as e:
+#             errors.append(f"Invalid or non-numeric unit value for course {code}: '{units}'")
+#             continue
+
+#     db.session.commit() # Commit once after the loop, similar to specialization_service
+#     return created_count, errors
+
 def batch_create_courses(courses_data):
-    created_count = 0
+    """
+    Batch creates or updates course associations.
+    Saves all valid rows to the database and reports errors for invalid rows.
+    """
+    processed_count = 0
     errors = []
 
-    for course_item in courses_data:
-        code = course_item.get('code')
-        title = course_item.get('title')
-        units = course_item.get('unit') 
-        bulletin_id = course_item.get('bulletin_id')
-        program_id = course_item.get('program_id')
-        semester_id = course_item.get('semester_id')
-        level_id = course_item.get('level_id')
-        specialization_id = course_item.get('specialization_id')
-        course_type_id = course_item.get('course_type_id')
-
-        # Basic validation
-        if not all([code, title, bulletin_id, program_id, semester_id, level_id, course_type_id]):
-            errors.append(f"Missing required fields in record: {course_item}")
-            continue
-
-        if  units is None:
-            units = 0
-
-        # if Course.query.filter_by(code=code).first():
-        #     errors.append(f'Course with code "{code}" already exists,\n')
-        #     continue
-
-        # try:
-        #     units = int(units)
-        # except (ValueError, TypeError):
-        #     errors.append(f"Invalid unit value for course {code}: {units}")
-        #     continue
-
-        # # Create Course and ProgramCourse
-        # new_course = Course(code=code, title=title, units=units)
-        # db.session.add(new_course)
-        # db.session.flush() # Flush to get the new_course.id
+    # Loop through each row of data provided
+    for index, course_item in enumerate(courses_data):
+        row_num = index + 1 
 
         try:
-            units = int(units)
-            course, existing_program_course = validate_course_data(
+            # Extract and validate data for the current row
+            code = course_item.get('code')
+            title = course_item.get('title')
+            units = course_item.get('unit') 
+            bulletin_id = course_item.get('bulletin_id')
+            program_id = course_item.get('program_id')
+            semester_id = course_item.get('semester_id')
+            level_id = course_item.get('level_id')
+            specialization_id = course_item.get('specialization_id')
+            course_type_id = course_item.get('course_type_id')
+
+            if not all([code, title, bulletin_id, program_id, semester_id, level_id, course_type_id]):
+                # If a row fails basic validation, we add an error and skip it.
+                # No database changes have been made yet for this row.
+                errors.append(f"Row {row_num}: Missing required fields.")
+                continue
+
+            try:
+                units = int(units) if units is not None else 0
+            except (ValueError, TypeError):
+                errors.append(f"Row {row_num}: Invalid unit value '{units}' for course '{code}'.")
+                continue
+
+            # Use the helper to find/create the main objects
+            # This adds new objects to the session if they don't exist
+            course, program_course = get_or_create_course_and_link(
                 code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id
             )
 
-            if existing_program_course:
-                errors.append(f'Course "{code}" is already in this program for the selected semester/bulletin.')
-                continue
-        
-            # Create the new ProgramCourse association
-            program_course = ProgramCourse(
-                course_id=course.id,
-                program_id=program_id,
-                level_id=level_id,
-                semester_id=semester_id,
-                bulletin_id=bulletin_id
-            )
-
+            # Apply the specialization logic
             if specialization_id:
                 specialization = Specialization.query.get(specialization_id)
-                if specialization:
-                    program_course.specializations.append(specialization)
+                if not specialization:
+                    errors.append(f"Row {row_num}: Specialization with ID '{specialization_id}' not found.")
+                    continue
 
-            db.session.add(program_course)
-            created_count += 1
-        
-        except (ValueError, TypeError) as e:
-            errors.append(f"Invalid or non-numeric unit value for course {code}: '{units}'")
-            continue
+                if specialization in program_course.specializations:
+                    errors.append(f"Row {row_num}: Course '{code}' is already linked to specialization '{specialization.name}'.")
+                    continue
+                
+                # Add the specialization to the session's pending changes
+                program_course.specializations.append(specialization)
 
-    db.session.commit() # Commit once after the loop, similar to specialization_service
-    return created_count, errors
+            # If we reach here, this row is valid and its changes are staged in the session
+            processed_count += 1
+
+        except Exception as e:
+            # If an unexpected error occurs during a row's processing,
+            # we'll just log the error and continue.
+            errors.append(f"Row {row_num}: An unexpected error occurred for course '{code}': {str(e)}")
+            continue 
+
+    # After the loop finishes, decide whether to commit or rollback.
+    try:
+        if processed_count > 0:
+            # If at least one row was processed successfully, commit all the staged changes.
+            db.session.commit()
+        else:
+            # If no rows were successfully processed, there's nothing to commit.
+            # Rollback to be safe and clear the session.
+            db.session.rollback()
+    except Exception as e:
+        # This is a failsafe. If the final commit fails (e.g., due to a database-level constraint
+        # that wasn't caught in the loop), we must rollback.
+        db.session.rollback()
+        # Add a generic error to the list to inform the user that the save failed.
+        errors.append(f"A final error occurred while saving the data, and all changes were rolled back. Please check your data. Details: {str(e)}")
+        # Reset the success count since nothing was saved
+        processed_count = 0
+
+    return processed_count, errors
 
 def validate_course_identifiers(course_id, program_id, level_id, semester_id, bulletin_id):
     # Basic validation

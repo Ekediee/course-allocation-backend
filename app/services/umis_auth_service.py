@@ -38,11 +38,10 @@ def auth_user(data):
         if not token:
             return None, "No access token received from UMIS"
 
-        id = "EBIE222"
+        # id = "EBIE222"
         # id = "DICK2010"
-        # id = "AARO123"
 
-        instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={id}'
+        instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={umisid}'
 
         header = {
             'action': 'read',
@@ -59,7 +58,7 @@ def auth_user(data):
             return None, "Invalid instructor data format from UMIS"
 
         for instructor in instructors['data']:
-            if instructor.get('instructorid') == id:
+            if instructor.get('instructorid') == umisid:
                 return instructor, None
                          
         # If we reach here, no matching instructor was found

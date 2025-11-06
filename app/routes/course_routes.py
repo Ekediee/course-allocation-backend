@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, current_user
 from app.services import course_service
-from app.services.course_service import get_all_courses, create_course, batch_create_courses, update_course, delete_course
+from app.services.course_service import get_all_courses, create_course, batch_create_courses, get_courses, update_course, delete_course, update_course_main
 from .user_routes import _simplify_db_error
 
 course_bp = Blueprint('courses', __name__)
@@ -53,6 +53,29 @@ def handle_get_all_courses():
                 "name": pc.semester.name
             }
         } for pc in courses
+    ]
+
+    return jsonify({"courses": response_data}), 200
+
+@course_bp.route('/main', methods=['GET'])
+@jwt_required()
+def handle_get_courses():
+    if not current_user:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    courses = get_courses()
+    
+    response_data = [
+        {
+            "id": course.id,
+            "code": course.code,
+            "title": course.title,
+            "unit": course.units,
+            "course_type": {
+                "id": course.course_type.id if course.course_type else None,
+                "name": course.course_type.name if course.course_type else None
+            }
+        } for course in courses
     ]
 
     return jsonify({"courses": response_data}), 200
@@ -175,6 +198,37 @@ def handle_update_course(program_course_id):
             "id": updated_course.course.course_type.id if updated_course.course.course_type else None,
             "name": updated_course.course.course_type.name if updated_course.course.course_type else None
         }
+    }
+
+    return jsonify(response_data), 200
+
+@course_bp.route('/main/<int:course_id>', methods=['PUT'])
+@jwt_required()
+def handle_update_course_main(course_id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid data provided'}), 400
+
+    updated_course, error = update_course_main(course_id, data)
+
+    if error:
+        # Resource not found
+        if "not found" in error:
+            return jsonify({"error": error}), 404
+        
+        if "is missing" in error:
+            return jsonify({"error": error}), 404
+    
+    # Manually construct the response to match the format in the prompt
+    response_data = {
+        "id": updated_course.id,
+        "code": updated_course.code,
+        "title": updated_course.title,
+        "unit": updated_course.units,
+        
     }
 
     return jsonify(response_data), 200

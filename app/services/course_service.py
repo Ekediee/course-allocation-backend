@@ -8,6 +8,10 @@ def get_all_courses():
     program_courses = ProgramCourse.query.order_by(desc(ProgramCourse.id)).all()
     return program_courses
 
+def get_courses():
+    courses = Course.query.order_by(Course.code).all()
+    return courses
+
 # def validate_course_data(code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id):
 #     # Try to find the course by its unique code.
 #     course = Course.query.filter_by(code=code).first()
@@ -419,6 +423,33 @@ def update_course(program_course_id, data):
         return None, f"A database integrity error occurred: {e}"
 
     return program_course, None
+
+def update_course_main(course_id, data):
+    # Fetch the SINGLE ProgramCourse instance using its primary key.
+    course = Course.query.get(course_id)
+    
+    # Check if that instance was found.
+    if not course:
+        return None, "Course not found"
+
+    # Update Course fields
+    new_code = data.get('code')
+    # Check if code is being changed to a new value
+    if new_code and new_code != course.code:
+        # Check if the new code already exists in the database
+        existing_course = Course.query.filter_by(code=new_code).first()
+        if existing_course:
+            return None, f"Course code '{new_code}' already exists."
+        course.code = new_code
+
+    # Update other Course fields
+    course.title = data.get('title', course.title)
+    course.units = data.get('unit', course.units)
+    # course_type_id = data.get('course_type_id', course.course_type_id)
+
+    db.session.commit()
+
+    return course, None
 
 def delete_course(program_course_id):
 

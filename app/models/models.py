@@ -258,3 +258,16 @@ class DepartmentAllocationState(db.Model):
     __table_args__ = (
         db.UniqueConstraint('department_id', 'session_id', 'semester_id', name='_department_session_semester_uc'),
     )
+
+class AppSetting(db.Model):
+    __tablename__ = 'app_setting'
+
+    id = db.Column(db.Integer, primary_key=True)
+    # The name of the setting, e.g., 'maintenance_mode'
+    setting_name = db.Column(db.String(50), unique=True, nullable=False)
+    # The value of the setting
+    is_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f'<AppSetting {self.setting_name}={self.is_enabled}>'

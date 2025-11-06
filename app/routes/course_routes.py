@@ -221,6 +221,9 @@ def handle_update_course_main(course_id):
         
         if "is missing" in error:
             return jsonify({"error": error}), 404
+        
+        if "already exists." in error:
+            return jsonify({"error": error}), 409
     
     # Manually construct the response to match the format in the prompt
     response_data = {

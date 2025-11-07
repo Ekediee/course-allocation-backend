@@ -11,6 +11,7 @@ from app.models import (
 
 import app.services.allocation_service as allocation_service
 from collections import defaultdict
+from flask import session
 
 
 allocation_bp = Blueprint('allocations', __name__)
@@ -774,7 +775,8 @@ def allocate_course():
                 "group_name": group_name,
                 "is_lead": (group_name.lower() == "group a"),
                 "is_allocated": data.get("isAllocated", False),
-                "class_size": int(data.get("classSize", 0))
+                "class_size": int(data.get("classSize", 0)),
+                "class_option":data.get('class_option')
             }
             allocations_to_create.append(allocation_data)
 
@@ -1094,7 +1096,27 @@ def get_allocation_details():
         details.append({
             "groupName": alloc.group_name,
             "lecturer": alloc.lecturer_profile.user_account[0].name if alloc.lecturer_profile else None,
-            "classSize": alloc.class_size
+            "classSize": alloc.class_size,
+            "classOption": alloc.class_option,
         })
 
     return jsonify({"status": "success", "data": details})
+
+@allocation_bp.route('/class-options', methods=['GET'])
+@jwt_required()
+def get_allocation_class_options():
+    """
+    Fetch the list of class options from UMIS.
+    """
+    if not current_user.is_hod:
+        return jsonify({"error": "Unauthorized: Only HODs can class options list."}), 403
+
+    umis_token = request.headers.get('X-UMIS-Token')
+    umisid = request.headers.get('X-UMIS-id')
+
+    class_options, error = allocation_service.get_allocation_class_options(umis_token, umisid)
+
+    if error:
+        return jsonify({"error": error}), 404
+
+    return jsonify(class_options), 200

@@ -8,6 +8,10 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
     LOG_FILE = "app.log"
+    SECRET_KEY = os.getenv("SECRET_KEY")
+
+    SESSION_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SECURE = True
 
     # Email configuration
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.googlemail.com')

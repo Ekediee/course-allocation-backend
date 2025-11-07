@@ -1,6 +1,41 @@
 from app import db
 from app.models import DepartmentAllocationState, AcademicSession, User, CourseAllocation, ProgramCourse, Lecturer, Semester, Program, Level
 from datetime import datetime, timezone
+import requests
+
+def get_allocation_class_options(umis_token, umisid):
+    """
+    Retrieves all allocation class options from UMIS.
+    """
+    
+    # FETCH INSTRUCTOR DATA
+    class_option_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=45:0&linkdata={umisid}'
+    header = {
+        'action': 'read',
+        'authorization': umis_token
+    }
+    resp = requests.get(class_option_api, headers=header)
+
+    if resp.status_code != 200:
+        return None, f"Failed to fetch class_option data ({resp.status_code})"
+    
+    class_options = resp.json()
+    if 'data' not in class_options or not isinstance(class_options['data'], list):
+        return None, "Invalid class_option data format from UMIS"
+
+    if 'data' in class_options:
+        sorted_class_options = sorted(
+            [{
+                'id': option.get('class_option_id'),
+                'name': option.get('class_option_name')
+            } for option in class_options.get('data')],
+            key=lambda option: option.get('name', '')
+        )
+
+        return sorted_class_options, None
+                        
+    return None, "class_option not found in UMIS data"
+    
 
 def get_allocation_status(department_id, semester_id):
     """
@@ -177,10 +212,11 @@ def update_course_allocation(data_list, department_id):
                 semester_id=semester_id,
                 lecturer_id=lecturer.id,
                 source_bulletin_id=program_course.bulletin_id,
-                group_name=item['groupName'],
-                is_lead=item['groupName'].lower() == "group a",
-                is_allocated=item['isAllocated'],
-                class_size=item['classSize']
+                group_name=item.get('groupName'),
+                is_lead=item.get('groupName').lower() == "group a",
+                is_allocated=item.get('isAllocated'),
+                class_size=item.get('classSize'),
+                class_option=item.get('class_option')
             )
             db.session.add(new_allocation)
 

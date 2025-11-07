@@ -23,9 +23,12 @@ def login():
         return jsonify({"msg": "UMIS ID and password are required"}), 400
 
     # Authenticate with UMIS
-    instructor_data, error = auth_user(data)
+    if len(auth_user(data)) != 4:
+        instructor_data, error = auth_user(data)
+    else:
+        instructor_data, error, umis_token, umisid = auth_user(data)
+
     if error:
-        print(error)
         return jsonify({"msg": f"UMIS authentication failed: {error}"}), 400
     
     if not instructor_data:
@@ -90,6 +93,8 @@ def login():
         "name": user.name,
         "email": user.email,
         "role": user.role,
+        "utoken": umis_token,
+        "uid": umisid
     }
 
     if user.lecturer:
@@ -104,10 +109,12 @@ def login():
             "rank": None,
             "qualification": None
         })
-
+    
     resp = jsonify({
         "access_token": token,
-        "user": user_info
+        "user": user_info,
+        "utoken": umis_token,
+        "uid": umisid
     })
 
     set_access_cookies(resp, token)

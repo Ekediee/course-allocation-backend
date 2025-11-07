@@ -25,7 +25,7 @@ def create_app(config_name='default'):
     mail.init_app(app)
 
     migrate.init_app(app, db)
-    CORS(app, supports_credentials=True)  # Enable CORS with credentials support
+    CORS(app, supports_credentials=True, origins="*")  # Enable CORS with credentials support
 
     # Initialize JWT
     jwt.init_app(app)

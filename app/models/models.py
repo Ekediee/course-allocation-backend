@@ -207,6 +207,7 @@ class CourseAllocation(db.Model):
     lecturer_id = db.Column(db.Integer, db.ForeignKey('lecturer.id'), nullable=True)
 
     group_name = db.Column(db.String(20), nullable=True)  # NULL = no group (single allocation)
+    class_option = db.Column(db.String(50), nullable=True)  
     is_lead = db.Column(db.Boolean, default=False)
     is_allocated = db.Column(db.Boolean, default=False)
 

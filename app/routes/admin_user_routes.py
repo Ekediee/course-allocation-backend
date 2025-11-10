@@ -99,3 +99,42 @@ def get_maintenance_status():
     is_maintenance = setting.is_enabled if setting else False
     
     return jsonify({"isMaintenanceMode": is_maintenance})
+
+@admin_user_bp.route('/close-allocation', methods=['POST'])
+@jwt_required()
+def set_close_allocation():
+    """
+    Sets allocation closed status.
+    """
+
+    if not current_user.is_superadmin:
+        return jsonify({"msg": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    enable = data.get('enable')
+
+    if enable is None or not isinstance(enable, bool):
+        return jsonify({"error": "Missing or invalid 'enable' field. Must be true or false."}), 400
+
+    # Find the setting, or create it if it doesn't exist
+    setting = AppSetting.query.filter_by(setting_name='close_allocation').first()
+    if not setting:
+        setting = AppSetting(setting_name='close_allocation')
+        db.session.add(setting)
+
+    setting.is_enabled = enable
+    db.session.commit()
+
+    return jsonify({"message": f"Allocation close state has been {'enabled' if enable else 'disabled'}."}), 200
+
+@admin_user_bp.route('/close-allocation', methods=['GET'])
+def get_close_allocation_status():
+    """
+    Returns the current state of allocation season of the application.
+    """
+    setting = AppSetting.query.filter_by(setting_name='close_allocation').first()
+    
+    # If the setting doesn't exist in the DB, default to false (not in maintenance)
+    is_closed = setting.is_enabled if setting else False
+    
+    return jsonify({"isAllocationClosed": is_closed})

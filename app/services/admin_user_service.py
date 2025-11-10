@@ -64,7 +64,7 @@ def get_all_admin_users():
 def create_admin_user(data):
     try:
         if User.query.filter_by(email=data['email']).first():
-            return None, "Email already exists"
+            return None, None, "Email already exists"
 
         password = generate_random_password()
         
@@ -105,10 +105,10 @@ def create_admin_user(data):
         return user_data, password, None
     except IntegrityError:
         db.session.rollback()
-        return None, "Database integrity error."
+        return None, None, "Database integrity error."
     except Exception as e:
         db.session.rollback()
-        return None, str(e)
+        return None, None, str(e)
 
 def create_admin_users_batch(users_data):
     created_count = 0

@@ -79,6 +79,21 @@ def auth_user(data):
 
         if not umisid or not password:
             return None, "Missing UMIS ID or password"
+        
+        # For development/testing purposes
+        temp_dept = ''
+
+        if "computer" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0] # This ID is development only
+
+        if "mass_com" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "software" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
 
         # Check for an existing token first
         umis_token = session.get('umis_token')
@@ -112,8 +127,15 @@ def auth_user(data):
             # STORE THE NEW TOKEN IN THE SESSION
             session['umis_token'] = umis_token
 
-        # umisid = "DICK2010"
-        # session['umisid'] = id
+        # For development/testing purposes
+        if "computer" in temp_dept:
+            umisid = "EBIE222"
+
+        if "software" in temp_dept:
+            umisid = "MAI2010"
+
+        if "mass_com" in temp_dept:
+            umisid = "ATAK111"
 
         # FETCH INSTRUCTOR DATA
         instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={umisid}'

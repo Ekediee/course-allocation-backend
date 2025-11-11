@@ -397,6 +397,9 @@ def get_detailed_course_list_for_allocation():
 
                 for pc in program_courses:
                     course = pc.course
+
+                    # Access the specializations for the program_course
+                    specializations = [spec.name for spec in pc.specializations]
                     
                     # Check if the allocation exists for the semester and course.
                     allocations = allocations_map.get((pc.id, semester.id))
@@ -411,15 +414,33 @@ def get_detailed_course_list_for_allocation():
                             if alloc.lecturer_profile and alloc.lecturer_profile.user_account
                         ]
 
-                    level_data["courses"].append({
-                        "id": str(course.id),
-                        "programCourseId": pc.id,
-                        "code": course.code,
-                        "title": course.title,
-                        "unit": course.units,
-                        "isAllocated": bool(allocations),
-                        "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
-                    })
+                    if len(specializations) > 0:
+                        for spec in specializations:
+
+                            level_data["courses"].append({
+                                "id": str(course.id),
+                                "programCourseId": pc.id,
+                                "code": course.code,
+                                "title": course.title,
+                                "unit": course.units,
+                                "specialization": spec,
+                                "isAllocated": bool(allocations),
+                                "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
+                            })
+                    else:
+                        level_data["courses"].append({
+                            "id": str(course.id),
+                            "programCourseId": pc.id,
+                            "code": course.code,
+                            "title": course.title,
+                            "unit": course.units,
+                            "specialization": 'General',
+                            "isAllocated": bool(allocations),
+                            "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
+                        })
+                
+                # It sorts by specialization name first, then by the course code.
+                level_data["courses"].sort(key=lambda c: (c['specialization'], c['code']))
 
                 if level_data["courses"]:
                     program_data["levels"].append(level_data)

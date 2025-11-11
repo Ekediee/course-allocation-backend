@@ -95,6 +95,10 @@ def auth_user(data):
             temp_dept = umisid.split("-")[1]
             umisid = umisid.split("-")[0]
 
+        if "religious" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
         # Check for an existing token first
         umis_token = session.get('umis_token')
 
@@ -136,6 +140,9 @@ def auth_user(data):
 
         if "mass_com" in temp_dept:
             umisid = "ATAK111"
+
+        if "religious" in temp_dept:
+            umisid = "DICK2010"
 
         # FETCH INSTRUCTOR DATA
         instructor_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=70:0&linkdata={umisid}'

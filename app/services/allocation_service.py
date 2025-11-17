@@ -10,6 +10,8 @@ from app.models import (
 from datetime import datetime, timezone
 import requests
 
+from app.models.models import Bulletin
+
 def get_allocation_class_options(umis_token, umisid):
     """
     Retrieves all allocation class options from UMIS.
@@ -341,10 +343,19 @@ def get_allocations_by_department(department_id, semester_id):
     return output, None
 
 def department_courses(department_id, semester_id):
+    # Get the active bulletin
+    active_bulletin = Bulletin.query.filter_by(is_active=True).first()
+
+    # IMPORTANT: Check if an active bulletin was found.
+    # If not, return an empty list because no courses can be associated with it.
+    if not active_bulletin:
+        return []
+    
     courses = (db.session.query(ProgramCourse.id)
         .join(Program, Program.id == ProgramCourse.program_id)
         .filter(ProgramCourse.semester_id == semester_id)
         .filter(Program.department_id == department_id)
+        .filter(ProgramCourse.bulletin_id == active_bulletin.id)
     ).all()
 
     return courses

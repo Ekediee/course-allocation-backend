@@ -10,6 +10,7 @@ from app.models import (
 )
 
 import app.services.allocation_service as allocation_service
+from app.services.allocation_service import get_allocation_status_overview
 from collections import defaultdict
 from flask import session
 
@@ -991,7 +992,7 @@ def get_courses_for_allocation_by_bulletin():
 
 @allocation_bp.route('/allocation-status-overview', methods=['GET'])
 @jwt_required()
-def get_allocation_status_overview():
+def get_allocation_overview():
     """
     Gets an overview of the allocation status for all departments for each semester.
     Status can be 'Allocated', 'Still Allocating', or 'Not Started'.
@@ -1001,88 +1002,90 @@ def get_allocation_status_overview():
         return jsonify({"error": "Unauthorized: Only superadmins and vetters can view this."}), 403
 
     try:
-        semesters = Semester.query.order_by(Semester.id).all()
-        departments = Department.query.order_by(Department.name).all()
+        # semesters = Semester.query.order_by(Semester.id).all()
+        # departments = Department.query.order_by(Department.name).all()
         active_session = AcademicSession.query.filter_by(is_active=True).first()
 
         if not active_session:
             return jsonify({"error": "No active academic session found."}), 404
 
-        output = []
-        for semester in semesters:
-            semester_data = {
-                "id": semester.id,
-                "name": semester.name,
-                "departments": []
-            }
+        output = get_allocation_status_overview()
+        
+
+        # for semester in semesters:
+        #     semester_data = {
+        #         "id": semester.id,
+        #         "name": semester.name,
+        #         "departments": []
+        #     }
             
-            for i, department in enumerate(departments):
+        #     for i, department in enumerate(departments):
                 
-                # Check if the department has submitted allocations for this semester
-                if department.name not in ["Academic Planning", "Registry"]:
+        #         # Check if the department has submitted allocations for this semester
+        #         if department.name not in ["Academic Planning", "Registry"]:
 
-                    submitted = False 
-                    vet_status = "Not Vetted" 
-                    status = "Not Started" 
+        #             submitted = False 
+        #             vet_status = "Not Vetted" 
+        #             status = "Not Started" 
                     
-                    state = DepartmentAllocationState.query.filter_by(
-                        department_id=department.id,
-                        semester_id=semester.id,
-                        session_id=active_session.id
-                    ).first()
+        #             state = DepartmentAllocationState.query.filter_by(
+        #                 department_id=department.id,
+        #                 semester_id=semester.id,
+        #                 session_id=active_session.id
+        #             ).first()
                     
-                    if state:
-                        status = "Allocated"
+        #             if state:
+        #                 status = "Allocated"
 
-                        if state.is_vetted:
-                            vet_status = "Vetted"
+        #                 if state.is_vetted:
+        #                     vet_status = "Vetted"
 
-                        if state.is_submitted:
-                            submitted = state.is_submitted
-                    else:
-                        # 2. If not submitted, check if there are any partial allocations
-                        has_allocations = db.session.query(CourseAllocation.id)\
-                            .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
-                            .join(Program, Program.id == ProgramCourse.program_id)\
-                            .filter(Program.department_id == department.id)\
-                            .filter(CourseAllocation.semester_id == semester.id)\
-                            .filter(CourseAllocation.session_id == active_session.id)\
-                            .first() is not None
+        #                 if state.is_submitted:
+        #                     submitted = state.is_submitted
+        #             else:
+        #                 # 2. If not submitted, check if there are any partial allocations
+        #                 has_allocations = db.session.query(CourseAllocation.id)\
+        #                     .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
+        #                     .join(Program, Program.id == ProgramCourse.program_id)\
+        #                     .filter(Program.department_id == department.id)\
+        #                     .filter(CourseAllocation.semester_id == semester.id)\
+        #                     .filter(CourseAllocation.session_id == active_session.id)\
+        #                     .first() is not None
                         
-                        if has_allocations:
-                            status = "Still Allocating"
+        #                 if has_allocations:
+        #                     status = "Still Allocating"
 
-                    # get most recent allocation timestamp for this department (if any)
-                    last_alloc_row = db.session.query(CourseAllocation.created_at)\
-                        .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
-                        .join(Program, Program.id == ProgramCourse.program_id)\
-                        .filter(Program.department_id == department.id)\
-                        .filter(CourseAllocation.semester_id == semester.id)\
-                        .filter(CourseAllocation.session_id == active_session.id)\
-                        .order_by(CourseAllocation.created_at.desc())\
-                        .first()
+        #             # get most recent allocation timestamp for this department (if any)
+        #             last_alloc_row = db.session.query(CourseAllocation.created_at)\
+        #                 .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
+        #                 .join(Program, Program.id == ProgramCourse.program_id)\
+        #                 .filter(Program.department_id == department.id)\
+        #                 .filter(CourseAllocation.semester_id == semester.id)\
+        #                 .filter(CourseAllocation.session_id == active_session.id)\
+        #                 .order_by(CourseAllocation.created_at.desc())\
+        #                 .first()
 
-                    last_alloc_at = last_alloc_row[0] if last_alloc_row else None
+        #             last_alloc_at = last_alloc_row[0] if last_alloc_row else None
                     
-                    hod = next((u for u in department.users if u.is_hod), None)
+        #             hod = next((u for u in department.users if u.is_hod), None)
 
-                    semester_data["departments"].append({
-                        "sn": i + 1,
-                        "department_id": department.id,
-                        "department_name": department.name,
-                        "hod_name": hod.name if hod else "-",
-                        "status": status,
-                        "submitted": submitted,
-                        "vet_status": vet_status if state else "Not Vetted",
-                        "last_allocation_at": last_alloc_at.isoformat() if last_alloc_at else None
-                    })
+        #             semester_data["departments"].append({
+        #                 "sn": i + 1,
+        #                 "department_id": department.id,
+        #                 "department_name": department.name,
+        #                 "hod_name": hod.name if hod else "-",
+        #                 "status": status,
+        #                 "submitted": submitted,
+        #                 "vet_status": vet_status if state else "Not Vetted",
+        #                 "last_allocation_at": last_alloc_at.isoformat() if last_alloc_at else None
+        #             })
 
-            # status_order = {"Allocated": 0, "Still Allocating": 1, "Not Started": 2}
-            # semester_data["departments"].sort(key=lambda d: status_order.get(d["status"], 99))        
-            # sort departments by most recent allocation first (None -> goes last)
-            semester_data["departments"].sort(key=lambda d: d.get("last_allocation_at") or "", reverse=True)
+        #     # status_order = {"Allocated": 0, "Still Allocating": 1, "Not Started": 2}
+        #     # semester_data["departments"].sort(key=lambda d: status_order.get(d["status"], 99))        
+        #     # sort departments by most recent allocation first (None -> goes last)
+        #     semester_data["departments"].sort(key=lambda d: d.get("last_allocation_at") or "", reverse=True)
 
-            output.append(semester_data)
+        #     output.append(semester_data)
 
         return jsonify(output)
 
@@ -1141,3 +1144,19 @@ def get_allocation_class_options():
         return jsonify({"error": error}), 404
 
     return jsonify(class_options), 200
+
+@allocation_bp.route('/metrics', methods=['GET'])
+@jwt_required()
+def get_allocation_metrics():
+    """
+    Fetch course allocation progress metrics.
+    """
+    if not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized: Only super admin or vetter can view these metrics."}), 403
+
+    metrics, error = allocation_service.get_active_semester_allocation_stats()
+
+    if error:
+        return jsonify({"error": error}), 404
+
+    return jsonify(metrics), 200

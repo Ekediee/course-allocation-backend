@@ -142,6 +142,7 @@ class Course(db.Model):
 class Semester(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False, unique=True)
+    is_active = db.Column(db.Boolean, default=False)
 
     allocations = db.relationship('CourseAllocation', backref='semester', lazy=True)
 

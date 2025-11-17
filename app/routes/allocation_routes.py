@@ -336,8 +336,15 @@ def get_detailed_course_list_for_allocation():
     semesters = Semester.query.all()
     session = AcademicSession.query.filter_by(is_active=True).first()
 
+    # Get the active bulletin
+    active_bulletin = Bulletin.query.filter_by(is_active=True).first()
+
     if not session:
         return jsonify({"error": "No active session found"}), 404
+    
+    # Check if active bulletin exists
+    if not active_bulletin:
+        return jsonify({"error": "No active bulletin found"}), 404
 
     # Pre-fetch semester objects for logic handling
     first_semester = Semester.query.filter_by(name='First Semester').first()
@@ -348,7 +355,10 @@ def get_detailed_course_list_for_allocation():
 
     # Get all ProgramCourse IDs relevant to the programs in this department.
     program_ids = [p.id for p in programs]
-    relevant_pc_ids_query = db.session.query(ProgramCourse.id).filter(ProgramCourse.program_id.in_(program_ids))
+    relevant_pc_ids_query = db.session.query(ProgramCourse.id).filter(
+        ProgramCourse.program_id.in_(program_ids),
+        ProgramCourse.bulletin_id == active_bulletin.id
+    )
 
     # Fetch all allocations for these courses in the current session in ONE query.
     all_allocations_for_session = CourseAllocation.query.filter(
@@ -371,7 +381,10 @@ def get_detailed_course_list_for_allocation():
         for program in programs:
             program_data = {"id": program.id, "name": program.name, "levels": []}
             
-            level_ids = db.session.query(ProgramCourse.level_id).filter_by(program_id=program.id).distinct().all()
+            level_ids = db.session.query(ProgramCourse.level_id).filter_by(
+                program_id=program.id,
+                bulletin_id=active_bulletin.id
+            ).distinct().all()
             
             for level_row in level_ids:
                 level_id = level_row.level_id
@@ -385,13 +398,15 @@ def get_detailed_course_list_for_allocation():
                     program_courses_query = ProgramCourse.query.filter(
                         ProgramCourse.program_id == program.id,
                         ProgramCourse.level_id == level.id,
-                        ProgramCourse.semester_id.in_(first_and_second_sem_ids)
+                        ProgramCourse.semester_id.in_(first_and_second_sem_ids),
+                        ProgramCourse.bulletin_id == active_bulletin.id
                     )
                 else:
                     program_courses_query = ProgramCourse.query.filter_by(
                         program_id=program.id, 
                         level_id=level.id,
-                        semester_id=semester.id
+                        semester_id=semester.id,
+                        bulletin_id=active_bulletin.id
                     )
 
                 program_courses = program_courses_query.distinct()

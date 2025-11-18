@@ -1078,7 +1078,7 @@ def get_allocation_overview():
     Status can be 'Allocated', 'Still Allocating', or 'Not Started'.
     Accessible by superadmins and vetters.
     """
-    if not (current_user.is_superadmin or current_user.is_vetter):
+    if not (current_user.is_superadmin or current_user.is_vetter or current_user.is_admin):
         return jsonify({"error": "Unauthorized: Only superadmins and vetters can view this."}), 403
 
     try:
@@ -1231,7 +1231,7 @@ def get_allocation_metrics():
     """
     Fetch course allocation progress metrics.
     """
-    if not (current_user.is_superadmin or current_user.is_vetter):
+    if not (current_user.is_superadmin or current_user.is_vetter or current_user.is_admin):
         return jsonify({"error": "Unauthorized: Only super admin or vetter can view these metrics."}), 403
 
     metrics, error = allocation_service.get_active_semester_allocation_stats()

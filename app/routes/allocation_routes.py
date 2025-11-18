@@ -357,7 +357,7 @@ def get_detailed_course_list_for_allocation():
     program_ids = [p.id for p in programs]
     relevant_pc_ids_query = db.session.query(ProgramCourse.id).filter(
         ProgramCourse.program_id.in_(program_ids),
-        ProgramCourse.bulletin_id == active_bulletin.id
+        ProgramCourse.bulletin_id == active_bulletin.id # review this line - it may prevent allocation from prev bulletins
     )
 
     # Fetch all allocations for these courses in the current session in ONE query.
@@ -383,7 +383,7 @@ def get_detailed_course_list_for_allocation():
             
             level_ids = db.session.query(ProgramCourse.level_id).filter_by(
                 program_id=program.id,
-                bulletin_id=active_bulletin.id
+                bulletin_id=active_bulletin.id # review - it may prevent levels from other bulletins
             ).distinct().all()
             
             for level_row in level_ids:

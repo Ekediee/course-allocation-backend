@@ -388,6 +388,8 @@ def get_allocation_status_overview():
         output = []
         for semester in semesters:
             semester_data = {
+                "sessionId": active_session.id, 
+                "sessionName": active_session.name,
                 "id": semester.id,
                 "name": semester.name,
                 "departments": []

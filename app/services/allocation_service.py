@@ -9,6 +9,7 @@ from app.models import (
 )
 from datetime import datetime, timezone
 import requests
+from sqlalchemy import or_
 
 from app.models.models import Bulletin
 
@@ -342,23 +343,56 @@ def get_allocations_by_department(department_id, semester_id):
     output.append(semester_data)
     return output, None
 
-def department_courses(department_id, semester_id):
+def department_courses(department_id, semester_id, session_id):
+    """
+    Gets the total number of relevant courses for a department in a given semester.
+    This includes:
+    1. All courses from the active bulletin for that semester.
+    2. Any courses from PREVIOUS bulletins that have been allocated in the given session.
+    """
     # Get the active bulletin
     active_bulletin = Bulletin.query.filter_by(is_active=True).first()
 
-    # IMPORTANT: Check if an active bulletin was found.
-    # If not, return an empty list because no courses can be associated with it.
     if not active_bulletin:
+        # If there's no bulletin, we can't determine the base list of courses.
         return []
     
-    courses = (db.session.query(ProgramCourse.id)
-        .join(Program, Program.id == ProgramCourse.program_id)
-        .filter(ProgramCourse.semester_id == semester_id)
-        .filter(Program.department_id == department_id)
-        .filter(ProgramCourse.bulletin_id == active_bulletin.id)
-    ).all()
+    # courses = (db.session.query(ProgramCourse.id)
+    #     .join(Program, Program.id == ProgramCourse.program_id)
+    #     .filter(ProgramCourse.semester_id == semester_id)
+    #     .filter(Program.department_id == department_id)
+    #     .filter(ProgramCourse.bulletin_id == active_bulletin.id)
+    # ).all()
 
-    return courses
+    # return courses
+
+    # Find all ProgramCourse IDs that have been allocated to this department in this session.
+    # This captures the "legacy" allocations.
+    allocations_in_session_query = db.session.query(CourseAllocation.program_course_id)\
+        .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
+        .join(Program, Program.id == ProgramCourse.program_id)\
+        .filter(
+            Program.department_id == department_id,
+            CourseAllocation.session_id == session_id
+        ).distinct()
+
+    allocated_pc_ids = {row.program_course_id for row in allocations_in_session_query.all()}
+
+    # Main query to get the definitive list of courses
+    courses_query = (db.session.query(ProgramCourse.id)
+        .join(Program, Program.id == ProgramCourse.program_id)
+        .filter(
+            Program.department_id == department_id,
+            ProgramCourse.semester_id == semester_id,
+            # The Course is in the active bulletin OR it has an allocation this session
+            or_(
+                ProgramCourse.bulletin_id == active_bulletin.id,
+                ProgramCourse.id.in_(allocated_pc_ids)
+            )
+        ).distinct()
+    )
+    
+    return courses_query.all()
 
 def department_allocation_progress(department_id, semester_id, session_id):
     allocations = (db.session.query(CourseAllocation.program_course_id)
@@ -385,6 +419,14 @@ def get_allocation_status_overview():
         departments = Department.query.order_by(Department.name).all()
         active_session = AcademicSession.query.filter_by(is_active=True).first()
 
+        if not active_session:
+            return {"error": "No active academic session found."}
+        
+        # We need the active bulletin for our logic, check for it once
+        active_bulletin = Bulletin.query.filter_by(is_active=True).first()
+        if not active_bulletin:
+            return {"error": "No active bulletin found."}
+
         output = []
         for semester in semesters:
             semester_data = {
@@ -404,7 +446,7 @@ def get_allocation_status_overview():
                     vet_status = "Not Vetted" 
                     status = "Not Started" 
 
-                    courses = department_courses(department.id, semester.id)
+                    courses = department_courses(department.id, semester.id, active_session.id)
 
                     allco = department_allocation_progress(department.id, semester.id, active_session.id)
                     
@@ -422,18 +464,19 @@ def get_allocation_status_overview():
 
                         if state.is_submitted:
                             submitted = state.is_submitted
-                    else:
-                        # 2. If not submitted, check if there are any partial allocations
-                        has_allocations = db.session.query(CourseAllocation.id)\
-                            .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
-                            .join(Program, Program.id == ProgramCourse.program_id)\
-                            .filter(Program.department_id == department.id)\
-                            .filter(CourseAllocation.semester_id == semester.id)\
-                            .filter(CourseAllocation.session_id == active_session.id)\
-                            .first() is not None
+                    elif len(allco) > 0:
+                        status = "Still Allocating"
+                        # # 2. If not submitted, check if there are any partial allocations
+                        # has_allocations = db.session.query(CourseAllocation.id)\
+                        #     .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
+                        #     .join(Program, Program.id == ProgramCourse.program_id)\
+                        #     .filter(Program.department_id == department.id)\
+                        #     .filter(CourseAllocation.semester_id == semester.id)\
+                        #     .filter(CourseAllocation.session_id == active_session.id)\
+                        #     .first() is not None
                         
-                        if has_allocations:
-                            status = "Still Allocating"
+                        # if has_allocations:
+                        #     status = "Still Allocating"
 
                     # get most recent allocation timestamp for this department (if any)
                     last_alloc_row = db.session.query(CourseAllocation.created_at)\
@@ -474,69 +517,140 @@ def get_allocation_status_overview():
         # Log the error e
         return {"error": "An unexpected error occurred.", "details": str(e)}
     
+# def get_active_semester_allocation_stats():
+#     """
+#     Gets active semesters' allocation stats for admin users oversight and decision making.
+#     """
+
+#     try:
+#         active_semester = Semester.query.filter_by(is_active=True).first()
+#         departments = Department.query.order_by(Department.name).all()
+#         active_session = AcademicSession.query.filter_by(is_active=True).first()
+
+#         # if not active_session:
+#         #     return jsonify({"error": "No active academic session found."}), 404
+
+#         output = []
+        
+#         semester_data = {
+#             "id": active_semester.id,
+#             "name": active_semester.name,
+#         }
+        
+        
+#         # Get list of all departments
+#         department_acad = [department.name for department in departments if department.name not in ["Academic Planning", "Registry"]]
+
+#         allocation_progress = 0
+#         allocation_submitted = 0
+#         allocated_courses = 0
+
+#         for i, department in enumerate(departments):
+
+#             if department.name not in ["Academic Planning", "Registry"]:
+
+#                 # courses = department_courses(department.id, semester.id)
+
+#                 allco = department_allocation_progress(department.id, active_semester.id, active_session.id)
+
+#                 if len(allco) > 0:
+#                     allocation_progress += 1
+#                     allocated_courses += len(allco)
+                
+#                 state = DepartmentAllocationState.query.filter_by(
+#                     department_id=department.id,
+#                     semester_id=active_semester.id,
+#                     session_id=active_session.id
+#                 ).first()
+                
+#                 if state:
+#                     allocation_submitted += 1
+        
+#         allocation_not_started = len(department_acad) - allocation_progress
+#         allocation_progress = allocation_progress - allocation_submitted
+
+#         semester_data["allocated_courses"] = allocated_courses
+#         semester_data["allocation_in_progress"] = allocation_progress
+#         semester_data["allocation_submitted"] = allocation_submitted
+#         semester_data["allocation_not_started"] = allocation_not_started
+#         semester_data["compliance_score"] = round((allocation_submitted/len(department_acad))*100, 1)
+#         semester_data["in_progress_rate"] = round((allocation_progress/len(department_acad))*100, 1)
+#         semester_data["not_started_rate"] = round((allocation_not_started/len(department_acad))*100, 1)
+
+#         return semester_data, None
+
+#     except Exception as e:
+#         # Log the error e
+#         return None, f"An unexpected error occurred: {str(e)}",
+
 def get_active_semester_allocation_stats():
     """
     Gets active semesters' allocation stats for admin users oversight and decision making.
     """
-
     try:
         active_semester = Semester.query.filter_by(is_active=True).first()
         departments = Department.query.order_by(Department.name).all()
         active_session = AcademicSession.query.filter_by(is_active=True).first()
 
-        # if not active_session:
-        #     return jsonify({"error": "No active academic session found."}), 404
+        # Add robust checks
+        if not active_semester:
+            return None, "No active semester found."
+        if not active_session:
+            return None, "No active academic session found."
 
-        output = []
-        
         semester_data = {
             "id": active_semester.id,
             "name": active_semester.name,
         }
         
+        department_acad = [d for d in departments if d.name not in ["Academic Planning", "Registry"]]
         
-        # Get list of all departments
-        department_acad = [department.name for department in departments if department.name not in ["Academic Planning", "Registry"]]
+        if not department_acad:
+             return None, "No academic departments found to generate stats."
 
-        allocation_progress = 0
-        allocation_submitted = 0
-        allocated_courses = 0
+        allocation_in_progress_count = 0
+        allocation_submitted_count = 0
+        total_allocated_courses = 0
+        total_courses_to_allocate = 0 # New metric
 
-        for i, department in enumerate(departments):
+        for department in department_acad:
+            
+            # --- UPDATED METRICS CALCULATION ---
+            # Get the definitive list of total courses for this department
+            courses_to_allocate = department_courses(department.id, active_semester.id, active_session.id)
+            total_courses_to_allocate += len(courses_to_allocate)
 
-            if department.name not in ["Academic Planning", "Registry"]:
+            # Get the number of actually allocated courses
+            allocations = department_allocation_progress(department.id, active_semester.id, active_session.id)
+            total_allocated_courses += len(allocations)
+            
+            # Check submission state
+            state = DepartmentAllocationState.query.filter_by(
+                department_id=department.id,
+                semester_id=active_semester.id,
+                session_id=active_session.id
+            ).first()
+            
+            if state and state.is_submitted:
+                allocation_submitted_count += 1
+            elif len(allocations) > 0:
+                allocation_in_progress_count += 1
 
-                # courses = department_courses(department.id, semester.id)
+        total_departments = len(department_acad)
+        allocation_not_started_count = total_departments - allocation_submitted_count - allocation_in_progress_count
 
-                allco = department_allocation_progress(department.id, active_semester.id, active_session.id)
-
-                if len(allco) > 0:
-                    allocation_progress += 1
-                    allocated_courses += len(allco)
-                
-                state = DepartmentAllocationState.query.filter_by(
-                    department_id=department.id,
-                    semester_id=active_semester.id,
-                    session_id=active_session.id
-                ).first()
-                
-                if state:
-                    allocation_submitted += 1
-        
-        allocation_not_started = len(department_acad) - allocation_progress
-        allocation_progress = allocation_progress - allocation_submitted
-
-        semester_data["allocated_courses"] = allocated_courses
-        semester_data["allocation_in_progress"] = allocation_progress
-        semester_data["allocation_submitted"] = allocation_submitted
-        semester_data["allocation_not_started"] = allocation_not_started
-        semester_data["compliance_score"] = round((allocation_submitted/len(department_acad))*100, 1)
-        semester_data["in_progress_rate"] = round((allocation_progress/len(department_acad))*100, 1)
-        semester_data["not_started_rate"] = round((allocation_not_started/len(department_acad))*100, 1)
+        semester_data["total_courses_to_allocate"] = total_courses_to_allocate - total_allocated_courses
+        semester_data["allocated_courses"] = total_allocated_courses
+        semester_data["allocation_in_progress"] = allocation_in_progress_count
+        semester_data["allocation_submitted"] = allocation_submitted_count
+        semester_data["allocation_not_started"] = allocation_not_started_count
+        semester_data["compliance_score"] = round((allocation_submitted_count / total_departments) * 100, 1)
+        semester_data["in_progress_rate"] = round((allocation_in_progress_count / total_departments) * 100, 1)
+        semester_data["not_started_rate"] = round((allocation_not_started_count / total_departments) * 100, 1)
 
         return semester_data, None
 
     except Exception as e:
         # Log the error e
-        return None, f"An unexpected error occurred: {str(e)}",
+        return None, f"An unexpected error occurred: {str(e)}"
 

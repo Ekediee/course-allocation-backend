@@ -809,7 +809,7 @@ def allocate_course():
 
         # VALIDATE ALL INCOMING DATA FIRST
         for index, data in enumerate(data_list):
-            print("semesterId: ", data.get("semesterId"))
+            
             # check if semesterId is a number - it could semester name if coming from specialization allocation
             semesterid = data.get("semesterId")
             if is_number(semesterid) is False:
@@ -1000,12 +1000,96 @@ def get_hod_allocations_by_specialization():
 
     return jsonify(output)
 
+# @allocation_bp.route('/courses-by-bulletin', methods=['POST'])
+# @jwt_required()
+# def get_courses_for_allocation_by_bulletin():
+#     """
+#     Fetches courses for a specific program, semester, and bulletin,
+#     organized by level, for the purpose of allocation.
+#     """
+#     # Authorization: Ensure user is HOD
+#     if not current_user or not current_user.is_hod:
+#         return jsonify({'msg': 'Access denied. Only HODs can view this data.'}), 403
+
+#     # Get query parameters
+#     data = request.get_json()
+#     bulletin_name = data.get('bulletin')
+#     program_name = data.get('program')
+#     semester_name = data.get('semester')
+    
+#     # Fetch bulletin from DB
+#     bulletin = Bulletin.query.filter_by(name=bulletin_name).first()
+#     program = Program.query.filter_by(name=program_name).first()
+#     semester = Semester.query.filter_by(name=semester_name).first()
+
+#     if not bulletin:
+#         return jsonify({"error": f"Bulletin '{bulletin_name}' not found."}), 404
+
+#     # Check submission status
+#     is_submitted, _ = allocation_service.get_allocation_status(current_user.department_id, semester.id)
+
+#     # Fetch program courses based on criteria
+#     program_courses = ProgramCourse.query.filter_by(
+#         program_id=program.id,
+#         semester_id=semester.id,
+#         bulletin_id=bulletin.id
+#     ).all()
+
+#      # Get all relevant ProgramCourse IDs first.
+#     pc_ids = [pc.id for pc in program_courses]
+    
+#     # Fetch all allocations for these courses in ONE query.
+#     all_allocations = CourseAllocation.query.filter(
+#         CourseAllocation.program_course_id.in_(pc_ids),
+#         CourseAllocation.semester_id == semester.id
+#     ).all()
+
+#     # Create a fast lookup dictionary (map).
+#     # Key: program_course_id, Value: allocation object
+#     allocations_map = {alloc.program_course_id: alloc for alloc in all_allocations}
+
+#     # Structure the data by level
+#     levels_data = {}
+#     for pc in program_courses:
+#         level = pc.level
+#         course = pc.course
+
+#         # get all allocated courses for the semester and program
+#         allocation = allocations_map.get(pc.id)
+
+#         if level.id not in levels_data:
+#             levels_data[level.id] = {
+#                 "id": str(level.id),
+#                 "name": f"{level.name} Level",
+#                 "courses": []
+#             }
+
+#         levels_data[level.id]["courses"].append({
+#             "id": str(course.id),
+#             "code": course.code,
+#             "title": course.title,
+#             "unit": course.units,
+#             "isAllocated": bool(allocation),
+#             "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
+#         })
+
+#     # Convert the dictionary to a list for the final output
+#     output = list(levels_data.values())
+
+#     # Sort the list of levels numerically by name.
+#     output.sort(key=lambda level: int(level['name'].split()[0]))
+
+#     return jsonify({
+#         "is_submitted": is_submitted,
+#         "levels": output
+#     })
+
 @allocation_bp.route('/courses-by-bulletin', methods=['POST'])
 @jwt_required()
 def get_courses_for_allocation_by_bulletin():
     """
     Fetches courses for a specific program, semester, and bulletin,
-    organized by level, for the purpose of allocation.
+    organized by level and specialization, for the purpose of allocation.
     """
     # Authorization: Ensure user is HOD
     if not current_user or not current_user.is_hod:
@@ -1022,30 +1106,33 @@ def get_courses_for_allocation_by_bulletin():
     program = Program.query.filter_by(name=program_name).first()
     semester = Semester.query.filter_by(name=semester_name).first()
 
-    if not bulletin:
-        return jsonify({"error": f"Bulletin '{bulletin_name}' not found."}), 404
+    if not bulletin or not program or not semester:
+        return jsonify({"error": "Invalid bulletin, program, or semester name."}), 404
 
     # Check submission status
     is_submitted, _ = allocation_service.get_allocation_status(current_user.department_id, semester.id)
 
-    # Fetch program courses based on criteria
+    # Fetch program courses based on criteria, eager loading specializations for performance
     program_courses = ProgramCourse.query.filter_by(
         program_id=program.id,
         semester_id=semester.id,
         bulletin_id=bulletin.id
+    ).options(db.joinedload(ProgramCourse.specializations)).all()
+
+    # Performance Optimization 
+    pc_ids = [pc.id for pc in program_courses]
+    all_allocations = CourseAllocation.query.filter(
+        CourseAllocation.program_course_id.in_(pc_ids),
+        CourseAllocation.semester_id == semester.id
     ).all()
+    allocations_map = {alloc.program_course_id: alloc for alloc in all_allocations}
 
     # Structure the data by level
     levels_data = {}
     for pc in program_courses:
         level = pc.level
         course = pc.course
-
-        # get all allocated courses for the semester
-        allocation = CourseAllocation.query.filter_by(
-            program_course_id=pc.id,
-            semester_id=semester.id
-        ).first()
+        allocation = allocations_map.get(pc.id)
 
         if level.id not in levels_data:
             levels_data[level.id] = {
@@ -1054,17 +1141,44 @@ def get_courses_for_allocation_by_bulletin():
                 "courses": []
             }
 
-        levels_data[level.id]["courses"].append({
-            "id": str(course.id),
-            "code": course.code,
-            "title": course.title,
-            "unit": course.units,
-            "isAllocated": bool(allocation),
-            "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
-        })
+        # get program course specialization detials
+        specialization_names = [spec.name for spec in pc.specializations]
 
-    # 7. Convert the dictionary to a list for the final output
+        # If the course has specializations, create a copy for each one.
+        if specialization_names:
+            for spec_name in specialization_names:
+                levels_data[level.id]["courses"].append({
+                    "id": str(course.id),
+                    "programCourseId": pc.id,
+                    "code": course.code,
+                    "title": course.title,
+                    "unit": course.units,
+                    "specialization": spec_name, # Set the specific specialization
+                    "isAllocated": bool(allocation),
+                    "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
+                })
+        # Otherwise, add it as a "General" course.
+        else:
+            levels_data[level.id]["courses"].append({
+                "id": str(course.id),
+                "programCourseId": pc.id,
+                "code": course.code,
+                "title": course.title,
+                "unit": course.units,
+                "specialization": "General", # Default value
+                "isAllocated": bool(allocation),
+                "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
+            })
+
+    # After populating, loop through the levels and sort their courses
+    for level_id in levels_data:
+        levels_data[level_id]['courses'].sort(key=lambda c: (c['specialization'], c['code']))
+
+    # Convert the dictionary to a list for the final output
     output = list(levels_data.values())
+
+    # Sort the list of levels numerically by name.
+    output.sort(key=lambda level: int(level['name'].split()[0]))
 
     return jsonify({
         "is_submitted": is_submitted,

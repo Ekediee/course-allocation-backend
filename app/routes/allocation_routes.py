@@ -992,6 +992,7 @@ def get_hod_allocations_by_specialization():
                     program_data["levels"].append(level_data)
 
             if program_data["levels"]:
+                program_data["levels"].sort(key=lambda level: int(level['name'].split()[0]))
                 semester_data["programs"].append(program_data)
         
         if semester_data["programs"]:

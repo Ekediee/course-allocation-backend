@@ -247,6 +247,10 @@ def get_allocations_by_department(department_id, semester_id):
     semester = db.session.get(Semester, semester_id)
     session = AcademicSession.query.filter_by(is_active=True).first()
 
+    if not programs:
+        # If no programs exist, return empty list immediately
+        return [], None
+
     if not semester or not session:
         return None, "Invalid semester or session."
     
@@ -256,14 +260,12 @@ def get_allocations_by_department(department_id, semester_id):
         semester_id=semester.id
     ).first()
 
-    if not state or not state.is_submitted:
+    if state:
+        vetted = state.is_vetted
+        submitted = state.is_submitted
+    else:
         vetted = False
         submitted = False
-
-    
-    vetted = state.is_vetted
-    submitted = state.is_submitted
-    db.session.commit()
 
     semester_data = {
         "sessionId": session.id, 
@@ -440,7 +442,7 @@ def get_allocation_status_overview():
             for i, department in enumerate(departments):
                 
                 # Check if the department has submitted allocations for this semester
-                if department.name not in ["Academic Planning", "Registry"]:
+                if department.name not in ["Academic Planning", "Registry", "General Study Division"]:
 
                     submitted = False 
                     vet_status = "Not Vetted" 

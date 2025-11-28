@@ -246,6 +246,7 @@ def get_allocations_by_department(department_id, semester_id):
     programs = Program.query.filter_by(department_id=department_id).all()
     semester = db.session.get(Semester, semester_id)
     session = AcademicSession.query.filter_by(is_active=True).first()
+    bulletin = Bulletin.query.filter_by(is_active=True).first()
 
     if not programs:
         # If no programs exist, return empty list immediately
@@ -298,7 +299,8 @@ def get_allocations_by_department(department_id, semester_id):
             program_courses = ProgramCourse.query.filter_by(
                 program_id=program.id, 
                 level_id=level.id,
-                semester_id=semester.id
+                semester_id=semester.id,
+                bulletin_id=bulletin.id # only current bulletin courses
             ).distinct()
 
             for pc in program_courses:
@@ -417,7 +419,7 @@ def get_allocation_status_overview():
     """
 
     try:
-        semesters = Semester.query.order_by(Semester.id).all()
+        semesters = Semester.query.filter_by(is_active=True).all() # Get only active semesters (semesters = Semester.query.order_by(Semester.id).all())
         departments = Department.query.order_by(Department.name).all()
         active_session = AcademicSession.query.filter_by(is_active=True).first()
 

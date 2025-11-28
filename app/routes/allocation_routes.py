@@ -388,7 +388,7 @@ def get_allocations_by_department_route():
 def get_detailed_course_list_for_allocation():
     department = current_user.lecturer.department
     programs = Program.query.filter_by(department_id=department.id).all()
-    semesters = Semester.query.all()
+    semesters = Semester.query.filter_by(is_active=True).all() # Or filtered by active session (semesters = Semester.query.all())
     session = AcademicSession.query.filter_by(is_active=True).first()
     active_bulletin = Bulletin.query.filter_by(is_active=True).first()
 

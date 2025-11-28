@@ -203,7 +203,7 @@ def get_departments_by_semester():
         return jsonify({"error": "Unauthorized: Only superadmins and vetters can view this."}), 403
 
     try:
-        semesters = Semester.query.order_by(Semester.id).all()
+        semesters = Semester.query.filter_by(is_active=True).all() # Get only active semesters (semesters = Semester.query.order_by(Semester.id).all())
         departments = Department.query.order_by(Department.name).all()
         active_session = AcademicSession.query.filter_by(is_active=True).first()
 

@@ -607,7 +607,7 @@ def get_active_semester_allocation_stats():
             "name": active_semester.name,
         }
         
-        department_acad = [d for d in departments if d.name not in ["Academic Planning", "Registry"]]
+        department_acad = [d for d in departments if d.name not in ["Academic Planning", "Registry", "General Study Division"]]
         
         if not department_acad:
              return None, "No academic departments found to generate stats."

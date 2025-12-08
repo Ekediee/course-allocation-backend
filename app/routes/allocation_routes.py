@@ -516,27 +516,134 @@ def get_detailed_course_list_for_allocation():
             
     return jsonify(output)
 
+# @allocation_bp.route('/print', methods=['POST'])
+# @jwt_required()
+# def get__allocation():
+
+#     data = request.get_json()
+#     department_id = data.get('department_id')
+
+#     programs = Program.query.filter_by(department_id=department_id).all()
+#     semesters = Semester.query.all()
+#     session = AcademicSession.query.filter_by(is_active=True).first()
+
+#     if not session:
+#         return jsonify({"error": "No active session found"}), 404
+
+#     # Pre-fetch semester objects for logic handling
+#     first_semester = Semester.query.filter_by(name='First Semester').first()
+#     second_semester = Semester.query.filter_by(name='Second Semester').first()
+#     third_semester = Semester.query.filter_by(name='Summer Semester').first()
+
+#     first_and_second_sem_ids = [s.id for s in [first_semester, second_semester] if s]
+
+#     # Get all ProgramCourse IDs relevant to the programs in this department.
+#     program_ids = [p.id for p in programs]
+#     relevant_pc_ids_query = db.session.query(ProgramCourse.id).filter(ProgramCourse.program_id.in_(program_ids))
+
+#     # Fetch all allocations for these courses in the current session in ONE query.
+#     all_allocations_for_session = CourseAllocation.query.filter(
+#         CourseAllocation.session_id == session.id,
+#         CourseAllocation.program_course_id.in_(relevant_pc_ids_query)
+#     ).all()
+
+#     # Create a fast lookup dictionary (map).
+#     allocations_map = defaultdict(list)
+#     for alloc in all_allocations_for_session:
+#         key = (alloc.program_course_id, alloc.semester_id)
+        
+#         allocations_map[key].append(alloc)
+
+#     output = []
+#     for semester in semesters:
+#         semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "programs": []}
+        
+#         for program in programs:
+#             program_data = {"id": program.id, "name": program.name, "levels": []}
+            
+#             level_ids = db.session.query(ProgramCourse.level_id).filter_by(program_id=program.id).distinct().all()
+            
+#             for level_row in level_ids:
+#                 level_id = level_row.level_id
+#                 level = db.session.get(Level, level_id)
+#                 level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+                
+#                 # Conditional logic for fetching courses
+#                 if third_semester and semester.id == third_semester.id:
+#                     if not first_and_second_sem_ids:
+#                         continue
+#                     program_courses_query = ProgramCourse.query.filter(
+#                         ProgramCourse.program_id == program.id,
+#                         ProgramCourse.level_id == level.id,
+#                         ProgramCourse.semester_id.in_(first_and_second_sem_ids)
+#                     )
+#                 else:
+#                     program_courses_query = ProgramCourse.query.filter_by(
+#                         program_id=program.id, 
+#                         level_id=level.id,
+#                         semester_id=semester.id
+#                     )
+
+#                 program_courses = program_courses_query.distinct()
+
+#                 for pc in program_courses:
+#                     course = pc.course
+                    
+#                     # Check if the allocation exists for the semester and course.
+#                     allocations = allocations_map.get((pc.id, semester.id))
+
+#                     # Process the list to get all lecturer names.
+#                     allocated_to_names = []
+#                     if allocations:
+#                         # Create a list of names, safely checking for profiles
+#                         allocated_to_names = [
+#                             alloc.lecturer_profile.user_account[0].name
+#                             for alloc in allocations 
+#                             if alloc.lecturer_profile and alloc.lecturer_profile.user_account
+#                         ]
+
+#                         level_data["courses"].append({
+#                             "id": str(course.id),
+#                             "programCourseId": pc.id,
+#                             "code": course.code,
+#                             "title": course.title,
+#                             "unit": course.units,
+#                             "isAllocated": bool(allocations),
+#                             "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
+#                         })
+
+#                 if level_data["courses"]:
+#                     program_data["levels"].append(level_data)
+
+#             program_data["levels"].sort(key=lambda level: int(level['name'].split()[0]))    
+
+#             if program_data["levels"]:
+#                 semester_data["programs"].append(program_data)
+        
+#         output.append(semester_data)
+        
+#     return jsonify(output)
+
 @allocation_bp.route('/print', methods=['POST'])
 @jwt_required()
-def get__allocation():
+def get_allocation_report(): # Renamed for clarity
 
     data = request.get_json()
     department_id = data.get('department_id')
 
-    programs = Program.query.filter_by(department_id=department_id).all()
+    # Get Department object for easier access to programs
+    department = db.session.get(Department, department_id)
+    if not department:
+        return jsonify({"error": "Department not found"}), 404
+        
+    programs = department.programs
     semesters = Semester.query.all()
     session = AcademicSession.query.filter_by(is_active=True).first()
 
     if not session:
         return jsonify({"error": "No active session found"}), 404
 
-    # Pre-fetch semester objects for logic handling
-    first_semester = Semester.query.filter_by(name='First Semester').first()
-    second_semester = Semester.query.filter_by(name='Second Semester').first()
-    third_semester = Semester.query.filter_by(name='Summer Semester').first()
-
-    first_and_second_sem_ids = [s.id for s in [first_semester, second_semester] if s]
-
+    # Pre-fetch ONLY allocated ProgramCourse IDs ---
     # Get all ProgramCourse IDs relevant to the programs in this department.
     program_ids = [p.id for p in programs]
     relevant_pc_ids_query = db.session.query(ProgramCourse.id).filter(ProgramCourse.program_id.in_(program_ids))
@@ -547,12 +654,20 @@ def get__allocation():
         CourseAllocation.program_course_id.in_(relevant_pc_ids_query)
     ).all()
 
+    # Create a set of ONLY the ProgramCourse IDs that are allocated.
+    # This is the key to our filtering.
+    allocated_pc_ids = {alloc.program_course_id for alloc in all_allocations_for_session}
+
     # Create a fast lookup dictionary (map).
     allocations_map = defaultdict(list)
     for alloc in all_allocations_for_session:
         key = (alloc.program_course_id, alloc.semester_id)
-        
         allocations_map[key].append(alloc)
+    
+    first_semester = Semester.query.filter_by(name='First Semester').first()
+    second_semester = Semester.query.filter_by(name='Second Semester').first()
+    third_semester = Semester.query.filter_by(name='Summer Semester').first()
+    first_and_second_sem_ids = [s.id for s in [first_semester, second_semester] if s]
 
     output = []
     for semester in semesters:
@@ -561,46 +676,44 @@ def get__allocation():
         for program in programs:
             program_data = {"id": program.id, "name": program.name, "levels": []}
             
-            level_ids = db.session.query(ProgramCourse.level_id).filter_by(program_id=program.id).distinct().all()
+            # Query levels based on ONLY allocated courses
+            level_ids = db.session.query(ProgramCourse.level_id).filter(
+                ProgramCourse.program_id == program.id,
+                ProgramCourse.id.in_(allocated_pc_ids) # Filter by allocated IDs
+            ).distinct().all()
             
             for level_row in level_ids:
                 level_id = level_row.level_id
                 level = db.session.get(Level, level_id)
                 level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
                 
-                # Conditional logic for fetching courses
-                if third_semester and semester.id == third_semester.id:
-                    if not first_and_second_sem_ids:
-                        continue
-                    program_courses_query = ProgramCourse.query.filter(
-                        ProgramCourse.program_id == program.id,
-                        ProgramCourse.level_id == level.id,
-                        ProgramCourse.semester_id.in_(first_and_second_sem_ids)
-                    )
-                else:
-                    program_courses_query = ProgramCourse.query.filter_by(
-                        program_id=program.id, 
-                        level_id=level.id,
-                        semester_id=semester.id
-                    )
+                # Base query for program and level
+                base_query = ProgramCourse.query.filter(
+                    ProgramCourse.program_id == program.id, 
+                    ProgramCourse.level_id == level.id,
+                    ProgramCourse.id.in_(allocated_pc_ids) # CRITICAL: Only get allocated courses
+                )
 
+                # Conditional logic for semester
+                if third_semester and semester.id == third_semester.id:
+                    if not first_and_second_sem_ids: continue
+                    program_courses_query = base_query.filter(ProgramCourse.semester_id.in_(first_and_second_sem_ids))
+                else:
+                    program_courses_query = base_query.filter(ProgramCourse.semester_id == semester.id)
+
+                # Now `program_courses` contains ONLY allocated courses
                 program_courses = program_courses_query.distinct()
 
                 for pc in program_courses:
                     course = pc.course
-                    
-                    # Check if the allocation exists for the semester and course.
-                    allocations = allocations_map.get((pc.id, semester.id))
+                    allocations = allocations_map.get((pc.id, semester.id), [])
 
-                    # Process the list to get all lecturer names.
-                    allocated_to_names = []
-                    if allocations:
-                        # Create a list of names, safely checking for profiles
-                        allocated_to_names = [
-                            alloc.lecturer_profile.user_account[0].name
-                            for alloc in allocations 
-                            if alloc.lecturer_profile and alloc.lecturer_profile.user_account
-                        ]
+                    # No 'if' check needed here, because we know allocations exist
+                    allocated_to_names = [
+                        alloc.lecturer_profile.user_account[0].name
+                        for alloc in allocations 
+                        if alloc.lecturer_profile and alloc.lecturer_profile.user_account
+                    ]
 
                     level_data["courses"].append({
                         "id": str(course.id),
@@ -608,19 +721,20 @@ def get__allocation():
                         "code": course.code,
                         "title": course.title,
                         "unit": course.units,
-                        "isAllocated": bool(allocations),
+                        "isAllocated": True,
                         "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
                     })
 
                 if level_data["courses"]:
                     program_data["levels"].append(level_data)
 
-            program_data["levels"].sort(key=lambda level: int(level['name'].split()[0]))    
-
             if program_data["levels"]:
+                program_data["levels"].sort(key=lambda level: int(level['name'].split()[0]))    
                 semester_data["programs"].append(program_data)
         
-        output.append(semester_data)
+        # Only add the semester if it has programs with allocated courses
+        if semester_data["programs"]:
+            output.append(semester_data)
         
     return jsonify(output)
 

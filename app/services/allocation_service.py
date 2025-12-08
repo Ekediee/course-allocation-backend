@@ -238,6 +238,115 @@ def update_course_allocation(data_list, department_id):
         db.session.rollback()
         return None, str(e)
 
+# def get_allocations_by_department(department_id, semester_id):
+#     """
+#     Gets all course allocations for a given department and semester,
+#     organized by program and level.
+#     """
+#     programs = Program.query.filter_by(department_id=department_id).all()
+#     semester = db.session.get(Semester, semester_id)
+#     session = AcademicSession.query.filter_by(is_active=True).first()
+#     # bulletin = Bulletin.query.filter_by(is_active=True).first()
+
+#     if not programs:
+#         # If no programs exist, return empty list immediately
+#         return [], None
+
+#     if not semester or not session:
+#         return None, "Invalid semester or session."
+    
+#     state = DepartmentAllocationState.query.filter_by(
+#         department_id=department_id,
+#         session_id=session.id,
+#         semester_id=semester.id
+#     ).first()
+
+#     if state:
+#         vetted = state.is_vetted
+#         submitted = state.is_submitted
+#     else:
+#         vetted = False
+#         submitted = False
+
+#     semester_data = {
+#         "sessionId": session.id, 
+#         "sessionName": session.name,
+#         "vetted": vetted,
+#         "submitted": submitted,
+#         "id": semester.id, 
+#         "name": semester.name, 
+#         "department_id": programs[0].department.id,
+#         "department_name": programs[0].department.name, 
+#         "programs": []
+#     }
+
+#     for program in programs:
+#         program_data = {"id": program.id, "name": program.name, "levels": []}
+        
+#         level_ids = (
+#             db.session.query(ProgramCourse.level_id)
+#             .filter_by(program_id=program.id)
+#             .distinct()
+#             .all()
+#         )
+        
+#         for level_row in level_ids:
+#             level_id = level_row.level_id
+#             level = db.session.get(Level, level_id)
+
+#             level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+            
+#             program_courses = ProgramCourse.query.filter_by(
+#                 program_id=program.id, 
+#                 level_id=level.id,
+#                 semester_id=semester.id,
+#                 # bulletin_id=bulletin.id # only current bulletin courses
+#             ).distinct()
+
+#             for pc in program_courses:
+#                 course = pc.course
+#                 allocations = CourseAllocation.query.filter_by(
+#                     program_course_id=pc.id,
+#                     semester_id=semester.id,
+#                     session_id=session.id
+#                 ).all()
+
+#                 if allocations:
+#                     for allocation in allocations:
+#                         lecturer_name = None
+#                         if allocation.lecturer_profile and allocation.lecturer_profile.user_account:
+#                             lecturer_name = allocation.lecturer_profile.user_account[0].name
+
+#                         level_data["courses"].append({
+#                             "id": str(course.id),
+#                             "code": course.code,
+#                             "title": course.title,
+#                             "unit": course.units,
+#                             "isAllocated": bool(allocation),
+#                             "allocatedTo": lecturer_name,
+#                             "groupName": allocation.group_name
+#                         })
+#                 # else:
+#                 #     level_data["courses"].append({
+#                 #         "id": str(course.id),
+#                 #         "code": course.code,
+#                 #         "title": course.title,
+#                 #         "unit": course.units,
+#                 #         "isAllocated": False,
+#                 #         "allocatedTo": None,
+#                 #         "groupName": None
+#                 #     })
+            
+#             if level_data["courses"]:
+#                 program_data["levels"].append(level_data)
+
+#         if program_data["levels"]:
+#             semester_data["programs"].append(program_data)
+
+#     output = []
+#     output.append(semester_data)
+#     return output, None
+
 def get_allocations_by_department(department_id, semester_id):
     """
     Gets all course allocations for a given department and semester,
@@ -246,7 +355,7 @@ def get_allocations_by_department(department_id, semester_id):
     programs = Program.query.filter_by(department_id=department_id).all()
     semester = db.session.get(Semester, semester_id)
     session = AcademicSession.query.filter_by(is_active=True).first()
-    # bulletin = Bulletin.query.filter_by(is_active=True).first()
+    bulletins = Bulletin.query.all()
 
     if not programs:
         # If no programs exist, return empty list immediately
@@ -268,84 +377,218 @@ def get_allocations_by_department(department_id, semester_id):
         vetted = False
         submitted = False
 
-    semester_data = {
-        "sessionId": session.id, 
-        "sessionName": session.name,
-        "vetted": vetted,
-        "submitted": submitted,
-        "id": semester.id, 
-        "name": semester.name, 
-        "department_id": programs[0].department.id,
-        "department_name": programs[0].department.name, 
-        "programs": []
-    }
-
-    for program in programs:
-        program_data = {"id": program.id, "name": program.name, "levels": []}
-        
-        level_ids = (
-            db.session.query(ProgramCourse.level_id)
-            .filter_by(program_id=program.id)
-            .distinct()
-            .all()
-        )
-        
-        for level_row in level_ids:
-            level_id = level_row.level_id
-            level = db.session.get(Level, level_id)
-
-            level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
-            
-            program_courses = ProgramCourse.query.filter_by(
-                program_id=program.id, 
-                level_id=level.id,
-                semester_id=semester.id,
-                # bulletin_id=bulletin.id # only current bulletin courses
-            ).distinct()
-
-            for pc in program_courses:
-                course = pc.course
-                allocations = CourseAllocation.query.filter_by(
-                    program_course_id=pc.id,
-                    semester_id=semester.id,
-                    session_id=session.id
-                ).all()
-
-                if allocations:
-                    for allocation in allocations:
-                        lecturer_name = None
-                        if allocation.lecturer_profile and allocation.lecturer_profile.user_account:
-                            lecturer_name = allocation.lecturer_profile.user_account[0].name
-
-                        level_data["courses"].append({
-                            "id": str(course.id),
-                            "code": course.code,
-                            "title": course.title,
-                            "unit": course.units,
-                            "isAllocated": bool(allocation),
-                            "allocatedTo": lecturer_name,
-                            "groupName": allocation.group_name
-                        })
-                # else:
-                #     level_data["courses"].append({
-                #         "id": str(course.id),
-                #         "code": course.code,
-                #         "title": course.title,
-                #         "unit": course.units,
-                #         "isAllocated": False,
-                #         "allocatedTo": None,
-                #         "groupName": None
-                #     })
-            
-            if level_data["courses"]:
-                program_data["levels"].append(level_data)
-
-        if program_data["levels"]:
-            semester_data["programs"].append(program_data)
-
     output = []
-    output.append(semester_data)
+
+    for bulletin in bulletins:
+        bulletin_data = {"id": bulletin.id, "name": bulletin.name, "semester": []}
+        semester_data = {
+            "sessionId": session.id, 
+            "sessionName": session.name,
+            "vetted": vetted,
+            "submitted": submitted,
+            "id": semester.id, 
+            "name": semester.name, 
+            "department_id": programs[0].department.id,
+            "department_name": programs[0].department.name, 
+            "programs": []
+        }
+
+        for program in programs:
+            program_data = {"id": program.id, "name": program.name, "levels": []}
+            
+            level_ids = (
+                db.session.query(ProgramCourse.level_id)
+                .filter_by(program_id=program.id)
+                .distinct()
+                .all()
+            )
+            
+            for level_row in level_ids:
+                level_id = level_row.level_id
+                level = db.session.get(Level, level_id)
+
+                level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+                
+                program_courses = ProgramCourse.query.filter_by(
+                    program_id=program.id, 
+                    level_id=level.id,
+                    semester_id=semester.id,
+                    # bulletin_id=bulletin.id # only current bulletin courses
+                ).distinct()
+
+                for pc in program_courses:
+                    course = pc.course
+                    allocations = CourseAllocation.query.filter_by(
+                        program_course_id=pc.id,
+                        semester_id=semester.id,
+                        session_id=session.id,
+                        source_bulletin_id=bulletin.id
+                    ).all()
+
+                    if allocations:
+                        for allocation in allocations:
+                            lecturer_name = None
+                            if allocation.lecturer_profile and allocation.lecturer_profile.user_account:
+                                lecturer_name = allocation.lecturer_profile.user_account[0].name
+
+                            level_data["courses"].append({
+                                "id": str(course.id),
+                                "code": course.code,
+                                "title": course.title,
+                                "unit": course.units,
+                                "isAllocated": bool(allocation),
+                                "allocatedTo": lecturer_name,
+                                "groupName": allocation.group_name
+                            })
+                    # else:
+                    #     level_data["courses"].append({
+                    #         "id": str(course.id),
+                    #         "code": course.code,
+                    #         "title": course.title,
+                    #         "unit": course.units,
+                    #         "isAllocated": False,
+                    #         "allocatedTo": None,
+                    #         "groupName": None
+                    #     })
+                
+                if level_data["courses"]:
+                    program_data["levels"].append(level_data)
+
+            if program_data["levels"]:
+                semester_data["programs"].append(program_data)
+
+        bulletin_data["semester"].append(semester_data)
+        output.append(bulletin_data)
+
+    
     return output, None
+
+# from collections import defaultdict
+
+# def get_allocations_by_department(department_id, semester_id):
+#     """
+#     Gets all course allocations for a given department and semester,
+#     organized by bulletin, program, and level.
+#     """
+#     # --- 1. Initial Data Fetching ---
+#     department = db.session.get(Department, department_id)
+#     semester = db.session.get(Semester, semester_id)
+#     session = AcademicSession.query.filter_by(is_active=True).first()
+#     bulletins = Bulletin.query.order_by(Bulletin.name).all()
+
+#     if not department or not semester or not session:
+#         return None, "Invalid department, semester, or active session."
+
+#     programs = department.programs
+#     if not programs:
+#         return [], None # Return empty list if department has no programs
+
+#     # --- 2. Performance Optimization: Fetch all relevant allocations in ONE query ---
+#     # Get all ProgramCourse IDs for the entire department.
+#     all_pc_ids_query = db.session.query(ProgramCourse.id)\
+#         .join(Program)\
+#         .filter(Program.department_id == department_id)
+
+#     # Fetch all allocations for this department in the current session & semester.
+#     # This list contains allocations from ALL bulletins.
+#     all_allocations_for_dept = CourseAllocation.query.filter(
+#         CourseAllocation.program_course_id.in_(all_pc_ids_query),
+#         CourseAllocation.session_id == session.id,
+#         CourseAllocation.semester_id == semester.id
+#     ).all()
+
+#     # Create a fast lookup map: {program_course_id: [list of allocation objects]}
+#     allocations_map = defaultdict(list)
+#     for alloc in all_allocations_for_dept:
+#         allocations_map[alloc.program_course_id].append(alloc)
+
+#     # Get the overall submission state for the department/semester
+#     state = DepartmentAllocationState.query.filter_by(
+#         department_id=department_id,
+#         session_id=session.id,
+#         semester_id=semester.id
+#     ).first()
+
+#     # --- 3. Structure the Data ---
+#     output = []
+#     for bulletin in bulletins:
+#         bulletin_data = {"id": bulletin.id, "name": bulletin.name, "semester": []}
+        
+#         # We build a semester_data object for each bulletin to match the original structure
+#         semester_data = {
+#             "sessionId": session.id, 
+#             "sessionName": session.name,
+#             "vetted": state.is_vetted if state else False,
+#             "submitted": state.is_submitted if state else False,
+#             "id": semester.id, 
+#             "name": semester.name, 
+#             "department_id": department.id,
+#             "department_name": department.name, 
+#             "programs": []
+#         }
+
+#         for program in programs:
+#             program_data = {"id": program.id, "name": program.name, "levels": []}
+            
+#             # Fetch all program courses for this specific program and semester
+#             program_courses = ProgramCourse.query.filter_by(
+#                 program_id=program.id,
+#                 semester_id=semester.id
+#             ).all()
+
+#             # Group these courses by their level_id for easier processing
+#             courses_by_level = defaultdict(list)
+#             for pc in program_courses:
+#                 courses_by_level[pc.level_id].append(pc)
+
+#             for level_id, courses_in_level in courses_by_level.items():
+#                 level = db.session.get(Level, level_id)
+#                 level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
+
+#                 for pc in courses_in_level:
+#                     course = pc.course
+                    
+#                     # Use the fast lookup map to get all potential allocations for this course
+#                     potential_allocations = allocations_map.get(pc.id, [])
+
+#                     # Now, filter these allocations to only those matching the CURRENT bulletin
+#                     bulletin_specific_allocations = [
+#                         alloc for alloc in potential_allocations 
+#                         if alloc.source_bulletin_id == bulletin.id
+#                     ]
+
+#                     if bulletin_specific_allocations:
+#                         for allocation in bulletin_specific_allocations:
+#                             lecturer_name = (allocation.lecturer_profile.user_account[0].name 
+#                                              if allocation.lecturer_profile and allocation.lecturer_profile.user_account else None)
+                            
+#                             level_data["courses"].append({
+#                                 "id": str(course.id),
+#                                 "code": course.code,
+#                                 "title": course.title,
+#                                 "unit": course.units,
+#                                 "isAllocated": True,
+#                                 "allocatedTo": lecturer_name,
+#                                 "groupName": allocation.group_name
+#                             })
+                
+#                 if level_data["courses"]:
+#                     program_data["levels"].append(level_data)
+
+#             # --- BUG FIX ---
+#             # Append the completed program_data INSIDE the program loop
+#             if program_data["levels"]:
+#                 semester_data["programs"].append(program_data)
+
+#         # Only add the semester data to the bulletin if it contains any programs
+#         if semester_data["programs"]:
+#             bulletin_data["semester"].append(semester_data)
+        
+#         # Only add the bulletin to the final output if it contains any semester data
+#         if bulletin_data["semester"]:
+#             output.append(bulletin_data)
+
+#     return output, None
 
 def department_courses(department_id, semester_id, session_id):
     """

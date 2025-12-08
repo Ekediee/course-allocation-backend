@@ -73,9 +73,9 @@ def get_session():
     current_session = AcademicSession.query.filter_by(is_active=True).first()
     
     return jsonify({
-        "session": {
+        "session": [{
             "id": current_session.id,
             "name": current_session.name,
             "is_active": current_session.is_active
-        }
+        }]
     }), 200

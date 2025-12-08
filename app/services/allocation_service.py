@@ -687,7 +687,7 @@ def get_allocation_status_overview():
             for i, department in enumerate(departments):
                 
                 # Check if the department has submitted allocations for this semester
-                if department.name not in ["Academic Planning", "Registry", "General Study Division"]:
+                if department.name not in ["Academic Planning", "Registry", "General Study Division", "Biosciences and Biotechnology"]:
 
                     submitted = False 
                     vet_status = "Not Vetted" 
@@ -850,7 +850,7 @@ def get_active_semester_allocation_stats():
             "name": active_semester.name,
         }
         
-        department_acad = [d for d in departments if d.name not in ["Academic Planning", "Registry", "General Study Division"]]
+        department_acad = [d for d in departments if d.name not in ["Academic Planning", "Registry", "General Study Division", "Biosciences and Biotechnology"]]
         
         if not department_acad:
              return None, "No academic departments found to generate stats."

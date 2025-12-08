@@ -438,6 +438,7 @@ def get_allocations_by_department(department_id, semester_id):
                                 "unit": course.units,
                                 "isAllocated": bool(allocation),
                                 "allocatedTo": lecturer_name,
+                                "class_option": allocation.class_option,
                                 "groupName": allocation.group_name
                             })
                     # else:

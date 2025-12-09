@@ -788,6 +788,7 @@ def get_allocation_status_overview():
                         "status": status,
                         "submitted": submitted,
                         "vet_status": vet_status if state else "Not Vetted",
+                        "vetted_by": state.vetted_by.name if state and state.is_vetted and state.vetted_by else None,
                         "last_allocation_at": last_alloc_at.isoformat() if last_alloc_at else None
                     })
         

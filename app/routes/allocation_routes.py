@@ -133,7 +133,7 @@ def unblock_allocations():
     if error:
         return jsonify({"error": error}), 400
 
-    return jsonify({"message": f"Allocations for department {department_id} and semester {semester_id} have been unblocked."}), 200
+    return jsonify(state), 200
 
 
 @allocation_bp.route('/update', methods=['PUT'])

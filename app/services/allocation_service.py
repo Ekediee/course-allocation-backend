@@ -129,28 +129,65 @@ def vet_allocation(department_id, admin_user_id, semester_id):
     db.session.commit()
     return state, None
 
+# def unblock_allocation(department_id, semester_id):
+#     """
+#     Unblocks a department's allocation for a given semester in the active session.
+#     """
+#     session = AcademicSession.query.filter_by(is_active=True).first()
+#     if not session:
+#         return None, "No active academic session found."
+
+#     state = DepartmentAllocationState.query.filter_by(
+#         department_id=department_id,
+#         session_id=session.id,
+#         semester_id=semester_id
+#     ).first()
+
+#     if not state or not state.is_submitted:
+#         return None, "Allocations for this department and semester are not currently submitted."
+
+#     state.is_submitted = False
+#     state.is_vetted = False
+#     db.session.commit()
+    
+#     return state, None
+
 def unblock_allocation(department_id, semester_id):
     """
-    Unblocks a department's allocation for a given semester in the active session.
+    Resets a department's allocation by DELETING the state record for a given
+    semester in the active session. This allows for a fresh submission.
     """
-    session = AcademicSession.query.filter_by(is_active=True).first()
-    if not session:
-        return None, "No active academic session found."
+    try:
+        session = AcademicSession.query.filter_by(is_active=True).first()
+        if not session:
+            return None, "No active academic session found."
 
-    state = DepartmentAllocationState.query.filter_by(
-        department_id=department_id,
-        session_id=session.id,
-        semester_id=semester_id
-    ).first()
+        state = DepartmentAllocationState.query.filter_by(
+            department_id=department_id,
+            session_id=session.id,
+            semester_id=semester_id
+        ).first()
 
-    if not state or not state.is_submitted:
-        return None, "Allocations for this department and semester are not currently submitted."
+        # If no state record exists, there's nothing to unblock.
+        if not state:
+            return None, "No allocation submission record found to unblock."
 
-    state.is_submitted = False
-    state.is_vetted = False
-    db.session.commit()
-    
-    return state, None
+        # If the allocation is already unblocked, no action is needed.
+        if not state.is_submitted:
+            return None, "Allocation for this department and semester is already in an unblocked state."
+
+        # Instead of resetting flags, delete the entire record from the database.
+        db.session.delete(state)
+        db.session.commit()
+        
+        # Return a success message instead of the now-deleted 'state' object.
+        return {"message": "Allocation has been successfully unblocked. The department can now resubmit."}, None
+
+    except Exception as e:
+        # If any database error occurs, roll back the session to prevent a bad state.
+        db.session.rollback()
+        # In a real application, you would log the error `e` here.
+        return None, f"An unexpected database error occurred during unblocking: {str(e)}"
 
 def update_course_allocation(data_list, department_id):
     if not data_list:

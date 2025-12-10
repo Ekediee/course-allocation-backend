@@ -99,7 +99,7 @@ def auth_user(data):
             umisid = "ADEL444"
 
         # FETCH INSTRUCTOR DATA
-        instructor_api = f'{os.getenv('UMIS_INSTRUCTOR_URL')}{umisid}'
+        instructor_api = f"{os.getenv('UMIS_INSTRUCTOR_URL')}{umisid}"
         header = {
             'action': 'read',
             'authorization': umis_token

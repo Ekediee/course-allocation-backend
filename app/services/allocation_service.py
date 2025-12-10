@@ -37,7 +37,7 @@ def get_allocation_class_options(umis_token, umisid):
     """
     
     # FETCH CLASS OPTION DATA
-    class_option_api = f'{os.getenv('UMIS_CLASS_OPTION_URL')}{umisid}'
+    class_option_api = f"{os.getenv('UMIS_CLASS_OPTION_URL')}{umisid}"
     header = {
         'action': 'read',
         'authorization': umis_token

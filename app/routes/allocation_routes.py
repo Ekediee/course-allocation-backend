@@ -1465,6 +1465,7 @@ def push_allocation_to_umis():
         return jsonify({"error": "Unauthorized: You are not authorized to perform this transaction."}), 403
     
     data = request.get_json()
+    print("Received data for UMIS push:", data)
     program_course_id = data.get('program_course_id')
 
     if not program_course_id:
@@ -1522,28 +1523,30 @@ def push_allocation_to_umis():
             # print(f"Pushing payload for {payload['courseid']} ({payload['classoption']}) to UMIS:", payload)
             
             # Push to UMIS
-            success, error_message = allocation_service.push_allocation_to_umis(payload, umis_token)
+            is_success, response_data = allocation_service.push_allocation_to_umis(payload, umis_token)
 
             # allocation.is_pushed_to_umis = True
             # allocation.pushed_to_umis_by_id = current_user.id # Record the user's ID
             # allocation.pushed_to_umis_at = datetime.now(timezone.utc) # Record the timestamp
             # db.session.commit()
             # Handle the response from the push
-            if success:
+            if is_success:
+
+                # Get response data
+                data_dict = response_data.get('data', {})
+                keyfield = data_dict.get('keyfield')
+                if keyfield:
+                    success_keyfields.append(str(keyfield))
+                
                 #  UPDATE THE ALLOCATION RECORD ON SUCCESS
                 allocation.is_pushed_to_umis = True
                 allocation.pushed_to_umis_by_id = current_user.id # Record the user's ID
                 allocation.pushed_to_umis_at = datetime.now(timezone.utc) # Record the timestamp
 
                 successful_pushes += 1
-
-                # Get response data
-                data_dict = success.get('data', {})
-                keyfield = data_dict.get('keyfield')
-                success_keyfields.append(keyfield)
             else:
                 failed_pushes.append(
-                    f"Course {payload['courseid']} ({payload['classoption']}): {error_message}"
+                    f"Course {payload['courseid']} ({payload['classoption']}): Failed to push to UMIS."
                 )
         
         # Commit all changes after processing

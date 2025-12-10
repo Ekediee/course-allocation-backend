@@ -27,9 +27,27 @@ def push_allocation_to_umis(payload, token):
         'action': 'data'
     }
 
-    response = requests.post(url, headers=headers, json=payload)
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        
+        response_data = response.json()
 
-    return response.json()
+        # Interpret the response from UMIS.
+        if response_data.get("ResultCode") == 0:
+            # On success, return a tuple: (True, the full parsed dictionary)
+            return True, response_data
+        else:
+            # On failure, return a tuple: (False, an error message string)
+            error_desc = response_data.get("ResultDesc", "Unknown error from UMIS")
+            return False, error_desc
+
+    except requests.exceptions.RequestException as e:
+        # Handle network errors
+        return False, f"Network error connecting to UMIS: {str(e)}"
+    except ValueError:
+        # Handle cases where the response is not valid JSON
+        return False, f"Invalid JSON response from UMIS: {response.text}"
 
 def get_allocation_class_options(umis_token, umisid):
     """

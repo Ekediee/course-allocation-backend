@@ -9,17 +9,35 @@ from app.models import (
 )
 from datetime import datetime, timezone
 import requests
+import json
 from sqlalchemy import or_
+import os
+from dotenv import load_dotenv
 
 from app.models.models import Bulletin
+
+load_dotenv()
+
+def push_allocation_to_umis(payload, token):
+    url = os.getenv('UMIS_ALLOCATION_URL')
+
+    headers = {
+        'Content-Type': 'application/json',
+        'authorization': token,
+        'action': 'data'
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    return response.json()
 
 def get_allocation_class_options(umis_token, umisid):
     """
     Retrieves all allocation class options from UMIS.
     """
     
-    # FETCH INSTRUCTOR DATA
-    class_option_api = f'https://umis.babcock.edu.ng/babcock/dataserver?view=45:0&linkdata={umisid}'
+    # FETCH CLASS OPTION DATA
+    class_option_api = f'{os.getenv('UMIS_CLASS_OPTION_URL')}{umisid}'
     header = {
         'action': 'read',
         'authorization': umis_token
@@ -469,14 +487,16 @@ def get_allocations_by_department(department_id, semester_id):
                                 lecturer_name = allocation.lecturer_profile.user_account[0].name
 
                             level_data["courses"].append({
-                                "id": str(course.id),
+                                "id": str(allocation.program_course_id),
                                 "code": course.code,
                                 "title": course.title,
                                 "unit": course.units,
                                 "isAllocated": bool(allocation),
                                 "allocatedTo": lecturer_name,
                                 "class_option": allocation.class_option,
-                                "groupName": allocation.group_name
+                                "groupName": allocation.group_name,
+                                "is_pushed_to_umis": allocation.is_pushed_to_umis,
+                                "pushed_to_umis_by": allocation.pushed_by.name if allocation.pushed_by else None,
                             })
                     # else:
                     #     level_data["courses"].append({

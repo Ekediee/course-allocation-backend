@@ -8,11 +8,12 @@ from app.models import (
     Lecturer, AcademicSession, User, Specialization, Bulletin,
     DepartmentAllocationState, Department
 )
-
+from app.services.umis_auth_service import auth_dev_user
 import app.services.allocation_service as allocation_service
 from app.services.allocation_service import get_allocation_status_overview
 from collections import defaultdict
 from flask import session
+from datetime import datetime, timezone
 
 
 allocation_bp = Blueprint('allocations', __name__)
@@ -1453,6 +1454,118 @@ def get_allocation_class_options():
         return jsonify({"error": error}), 404
 
     return jsonify(class_options), 200
+
+@allocation_bp.route('/push_allocation_to_umis', methods=['POST'])
+@jwt_required()
+def push_allocation_to_umis():
+    """
+    Pushes ALL allocated groups for a given program_course_id to UMIS.
+    """
+    if not current_user.is_vetter and not current_user.is_superadmin:
+        return jsonify({"error": "Unauthorized: You are not authorized to perform this transaction."}), 403
+    
+    data = request.get_json()
+    program_course_id = data.get('program_course_id')
+
+    if not program_course_id:
+        return jsonify({"error": "Missing required field: program_course_id"}), 400
+
+    # Find all allocations for the given program_course_id
+    allocations = CourseAllocation.query.filter_by(program_course_id=program_course_id).all()
+
+    # Handle the case where no allocations are found
+    if not allocations:
+        return jsonify({"message": "No allocations found for this course to push to UMIS."}), 200
+
+    try:
+        # Authenticate ONCE before the loop
+        umis_token, auth_error = auth_dev_user()
+        if auth_error:
+            # If authentication fails, stop immediately.
+            return jsonify({"error": f"Failed to authenticate with UMIS: {auth_error}"}), 500
+
+        successful_pushes = 0
+        failed_pushes = []
+        success_keyfields = []
+
+        # Loop and push EACH allocation
+        for allocation in allocations:
+            # Check if necessary data exists before creating the payload
+            if not allocation.lecturer_profile or not allocation.lecturer_profile.staff_id:
+                failed_pushes.append(f"Allocation for course {allocation.program_course.course.code} has a missing lecturer staff ID.")
+                continue # Skip this allocation and move to the next one
+
+            if allocation.is_pushed_to_umis:
+                # Skip already pushed allocations
+                continue
+
+            # session = allocation.session.name
+            semester = allocation.semester.name
+
+            if semester.lower() == 'first semester':
+                quarterid = f"{allocation.session.name}.1"
+            elif semester.lower() == 'second semester':
+                quarterid = f"{allocation.session.name}.2"
+            else:
+                quarterid = f"{allocation.session.name}.3"
+
+            payload = {
+                "quarterid": quarterid,
+                "instructorid": allocation.lecturer_profile.staff_id,
+                "courseid": allocation.program_course.course.code, 
+                "org_id": "0",
+                "coursetitle": allocation.program_course.course.title, 
+                "classoption": allocation.class_option,
+                "maxclass": str(allocation.class_size),
+            }
+
+            # print(f"Pushing payload for {payload['courseid']} ({payload['classoption']}) to UMIS:", payload)
+            
+            # Push to UMIS
+            success, error_message = allocation_service.push_allocation_to_umis(payload, umis_token)
+
+            # allocation.is_pushed_to_umis = True
+            # allocation.pushed_to_umis_by_id = current_user.id # Record the user's ID
+            # allocation.pushed_to_umis_at = datetime.now(timezone.utc) # Record the timestamp
+            # db.session.commit()
+            # Handle the response from the push
+            if success:
+                #  UPDATE THE ALLOCATION RECORD ON SUCCESS
+                allocation.is_pushed_to_umis = True
+                allocation.pushed_to_umis_by_id = current_user.id # Record the user's ID
+                allocation.pushed_to_umis_at = datetime.now(timezone.utc) # Record the timestamp
+
+                successful_pushes += 1
+
+                # Get response data
+                data_dict = success.get('data', {})
+                keyfield = data_dict.get('keyfield')
+                success_keyfields.append(keyfield)
+            else:
+                failed_pushes.append(
+                    f"Course {payload['courseid']} ({payload['classoption']}): {error_message}"
+                )
+        
+        # Commit all changes after processing
+        db.session.commit()
+
+        # Provide a summary response
+        if not failed_pushes:
+            return jsonify({
+                "status": "success",
+                "message": f"Successfully pushed {successful_pushes} allocation(s) to UMIS.\nKeyfields: {', '.join(success_keyfields)}"
+            }), 200
+        else:
+            return jsonify({
+                "status": "partial_failure",
+                "message": f"Completed with {len(failed_pushes)} error(s). Successfully pushed {successful_pushes} allocation(s).",
+                "errors": failed_pushes
+            }), 207 # 207 Multi-Status is appropriate for partial successes
+
+    except Exception as e:
+        # Catch any unexpected errors (e.g., database connection issues)
+        # Log the error `e` here in a real application
+        return jsonify({"error": f"An unexpected server error occurred: {str(e)}"}), 500
 
 @allocation_bp.route('/metrics', methods=['GET'])
 @jwt_required()

@@ -211,6 +211,11 @@ class CourseAllocation(db.Model):
     class_option = db.Column(db.String(50), nullable=True)  
     is_lead = db.Column(db.Boolean, default=False)
     is_allocated = db.Column(db.Boolean, default=False)
+    is_pushed_to_umis = db.Column(db.Boolean, default=False)
+
+    # Tracking fields for UMIS push
+    pushed_to_umis_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    pushed_to_umis_at = db.Column(db.DateTime, nullable=True)
 
     is_de_allocation = db.Column(db.Boolean, default=False)
     source_bulletin_id = db.Column(db.Integer, db.ForeignKey('bulletin.id'), nullable=True)
@@ -219,7 +224,9 @@ class CourseAllocation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, onupdate=datetime.now(timezone.utc))
 
-
+    # This lets you easily access the User object who pushed the allocation, e.g., `allocation.pushed_by.name`
+    pushed_by = db.relationship('User', foreign_keys=[pushed_to_umis_by_id])
+    
     source_bulletin = db.relationship('Bulletin')
 
 

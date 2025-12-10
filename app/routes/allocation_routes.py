@@ -1546,7 +1546,7 @@ def push_allocation_to_umis():
                 successful_pushes += 1
             else:
                 failed_pushes.append(
-                    f"Course {payload['courseid']} ({payload['classoption']}): Failed to push to UMIS."
+                    f"Course {payload['courseid']} ({payload['classoption']}): {response_data}."
                 )
         
         # Commit all changes after processing
@@ -1561,7 +1561,7 @@ def push_allocation_to_umis():
         else:
             return jsonify({
                 "status": "partial_failure",
-                "message": f"Completed with {len(failed_pushes)} error(s). Successfully pushed {successful_pushes} allocation(s).",
+                "message": f"Completed with {len(failed_pushes)} error(s). Successfully pushed {successful_pushes} allocation(s).\Errors: {', '.join(failed_pushes)}",
                 "errors": failed_pushes
             }), 207 # 207 Multi-Status is appropriate for partial successes
 

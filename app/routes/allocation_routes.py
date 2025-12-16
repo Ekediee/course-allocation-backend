@@ -1539,9 +1539,19 @@ def push_bulk_allocation_to_umis():
 
         
         for allocation in all_allocations:
+            # Ensure all related objects exist
+            if not allocation.program_course or not allocation.program_course.course:
+                failed_pushes.append(f"Skipping allocation ID {allocation.id}: Missing related course data.")
+                continue
+
             # Check for missing data
             if not allocation.lecturer_profile or not allocation.lecturer_profile.staff_id:
                 failed_pushes.append(f"Course {allocation.program_course.course.code}: Missing lecturer staff ID.")
+                continue
+
+            # Ensure semester relationship is valid
+            if not allocation.semester:
+                failed_pushes.append(f"Course {allocation.program_course.course.code}: Missing semester information.")
                 continue
 
             # Skip already pushed allocations

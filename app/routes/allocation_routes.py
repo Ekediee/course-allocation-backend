@@ -1320,82 +1320,6 @@ def get_allocation_overview():
             return jsonify({"error": "No active academic session found."}), 404
 
         output = get_allocation_status_overview()
-        
-
-        # for semester in semesters:
-        #     semester_data = {
-        #         "id": semester.id,
-        #         "name": semester.name,
-        #         "departments": []
-        #     }
-            
-        #     for i, department in enumerate(departments):
-                
-        #         # Check if the department has submitted allocations for this semester
-        #         if department.name not in ["Academic Planning", "Registry"]:
-
-        #             submitted = False 
-        #             vet_status = "Not Vetted" 
-        #             status = "Not Started" 
-                    
-        #             state = DepartmentAllocationState.query.filter_by(
-        #                 department_id=department.id,
-        #                 semester_id=semester.id,
-        #                 session_id=active_session.id
-        #             ).first()
-                    
-        #             if state:
-        #                 status = "Allocated"
-
-        #                 if state.is_vetted:
-        #                     vet_status = "Vetted"
-
-        #                 if state.is_submitted:
-        #                     submitted = state.is_submitted
-        #             else:
-        #                 # 2. If not submitted, check if there are any partial allocations
-        #                 has_allocations = db.session.query(CourseAllocation.id)\
-        #                     .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
-        #                     .join(Program, Program.id == ProgramCourse.program_id)\
-        #                     .filter(Program.department_id == department.id)\
-        #                     .filter(CourseAllocation.semester_id == semester.id)\
-        #                     .filter(CourseAllocation.session_id == active_session.id)\
-        #                     .first() is not None
-                        
-        #                 if has_allocations:
-        #                     status = "Still Allocating"
-
-        #             # get most recent allocation timestamp for this department (if any)
-        #             last_alloc_row = db.session.query(CourseAllocation.created_at)\
-        #                 .join(ProgramCourse, ProgramCourse.id == CourseAllocation.program_course_id)\
-        #                 .join(Program, Program.id == ProgramCourse.program_id)\
-        #                 .filter(Program.department_id == department.id)\
-        #                 .filter(CourseAllocation.semester_id == semester.id)\
-        #                 .filter(CourseAllocation.session_id == active_session.id)\
-        #                 .order_by(CourseAllocation.created_at.desc())\
-        #                 .first()
-
-        #             last_alloc_at = last_alloc_row[0] if last_alloc_row else None
-                    
-        #             hod = next((u for u in department.users if u.is_hod), None)
-
-        #             semester_data["departments"].append({
-        #                 "sn": i + 1,
-        #                 "department_id": department.id,
-        #                 "department_name": department.name,
-        #                 "hod_name": hod.name if hod else "-",
-        #                 "status": status,
-        #                 "submitted": submitted,
-        #                 "vet_status": vet_status if state else "Not Vetted",
-        #                 "last_allocation_at": last_alloc_at.isoformat() if last_alloc_at else None
-        #             })
-
-        #     # status_order = {"Allocated": 0, "Still Allocating": 1, "Not Started": 2}
-        #     # semester_data["departments"].sort(key=lambda d: status_order.get(d["status"], 99))        
-        #     # sort departments by most recent allocation first (None -> goes last)
-        #     semester_data["departments"].sort(key=lambda d: d.get("last_allocation_at") or "", reverse=True)
-
-        #     output.append(semester_data)
 
         return jsonify(output)
 
@@ -1465,7 +1389,7 @@ def push_allocation_to_umis():
         return jsonify({"error": "Unauthorized: You are not authorized to perform this transaction."}), 403
     
     data = request.get_json()
-    print("Received data for UMIS push:", data)
+    
     program_course_id = data.get('program_course_id')
 
     if not program_course_id:
@@ -1568,6 +1492,119 @@ def push_allocation_to_umis():
     except Exception as e:
         # Catch any unexpected errors (e.g., database connection issues)
         # Log the error `e` here in a real application
+        return jsonify({"error": f"An unexpected server error occurred: {str(e)}"}), 500
+    
+@allocation_bp.route('/push_bulk_allocation_to_umis', methods=['POST'])
+@jwt_required()
+def push_bulk_allocation_to_umis():
+    """
+    Pushes ALL allocations for an entire department and semester to UMIS.
+    """
+    if not current_user.is_vetter and not current_user.is_superadmin:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    department_id = data.get('department_id')
+    semester_id = data.get('semester_id')
+
+    if not department_id or not semester_id:
+        return jsonify({"error": "Missing required fields: department_id and semester_id"}), 400
+    
+    session = AcademicSession.query.filter_by(is_active=True).first()
+    if not session:
+        return jsonify({"error": "No active academic session found"}), 404
+    
+    try:
+        # Fetch ALL allocations for the department/semester/session in ONE query
+        all_allocations = db.session.query(CourseAllocation)\
+            .join(ProgramCourse, CourseAllocation.program_course_id == ProgramCourse.id)\
+            .join(Program, ProgramCourse.program_id == Program.id)\
+            .filter(
+                Program.department_id == department_id,
+                CourseAllocation.semester_id == semester_id,
+                CourseAllocation.session_id == session.id
+            ).all()
+
+        if not all_allocations:
+            return jsonify({"message": "No allocations found for this department and semester to push to UMIS."}), 200
+
+        # Authenticate on UMIS
+        umis_token, auth_error = auth_dev_user()
+        if auth_error:
+            return jsonify({"error": f"Failed to authenticate with UMIS: {auth_error}"}), 500
+
+        successful_pushes = 0
+        failed_pushes = []
+        success_keyfields = []
+
+        
+        for allocation in all_allocations:
+            # Check for missing data
+            if not allocation.lecturer_profile or not allocation.lecturer_profile.staff_id:
+                failed_pushes.append(f"Course {allocation.program_course.course.code}: Missing lecturer staff ID.")
+                continue
+
+            # Skip already pushed allocations
+            if allocation.is_pushed_to_umis: 
+                continue
+
+            # Determine quarterid
+            semester_name = allocation.semester.name.lower()
+            if semester_name == 'first semester':
+                quarterid = f"{session.name}.1"
+            elif semester_name == 'second semester':
+                quarterid = f"{session.name}.2"
+            else:
+                quarterid = f"{session.name}.3"
+
+            payload = {
+                "quarterid": quarterid,
+                "instructorid": allocation.lecturer_profile.staff_id,
+                "courseid": allocation.program_course.course.code, 
+                "org_id": "0",
+                "coursetitle": allocation.program_course.course.title, 
+                "classoption": allocation.class_option,
+                "maxclass": str(allocation.class_size),
+            }
+            
+            # Push to UMIS
+            is_success, response_data = allocation_service.push_allocation_to_umis(payload, umis_token)
+
+            if is_success:
+                data_dict = response_data.get('data', {})
+                keyfield = data_dict.get('keyfield')
+                if keyfield:
+                    success_keyfields.append(str(keyfield))
+                
+                # Update the allocation record
+                allocation.is_pushed_to_umis = True
+                allocation.pushed_to_umis_by_id = current_user.id
+                allocation.pushed_to_umis_at = datetime.now(timezone.utc)
+                successful_pushes += 1
+            else:
+                failed_pushes.append(
+                    f"Course {payload['courseid']} ({payload['classoption']}): {response_data}"
+                )
+        
+        # Commit all changes after processing
+        db.session.commit()
+
+        # Single summary response
+        if not failed_pushes:
+            return jsonify({
+                "status": "success",
+                "message": f"Successfully pushed {successful_pushes} allocation(s) to UMIS.\nKeyfields: {', '.join(success_keyfields)}",
+            }), 200
+        else:
+            return jsonify({
+                "status": "partial_failure",
+                "message": f"Completed with {len(failed_pushes)} error(s). Successfully pushed {successful_pushes} allocation(s).\nKeyfields: {', '.join(success_keyfields)}",
+                "errors": failed_pushes,
+            }), 207
+
+    except Exception as e:
+        db.session.rollback()
+        # Log the full error `e` here for debugging
         return jsonify({"error": f"An unexpected server error occurred: {str(e)}"}), 500
 
 @allocation_bp.route('/metrics', methods=['GET'])

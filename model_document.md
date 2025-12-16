@@ -161,6 +161,7 @@ Captures curriculum structure for a time-bound period (e.g., 2019–2023).
 Key Fields:
 - `name`, `start_year`, `end_year`: Identifiers for the curriculum period.
 - `is_active`: Flags the currently used curriculum.
+- `created_at`, `updated_at`: Timestamps for record creation and modification.
 
 Relationships:
 - One-to-many with `ProgramCourse`.
@@ -174,6 +175,7 @@ Define academic periods (`Semester`) and student year groups (`Level`).
 
 Key Fields:
 - `name`: Unique identifier (e.g., "First Semester", "100L").
+- `is_active`: (Semester only) Flags if the semester is currently active for allocation.
 
 Relationships:
 - Both are used in `ProgramCourse` to define when a course is offered and for which student level.
@@ -187,6 +189,7 @@ The central link model. Represents a specific course offering under a program, f
 
 Key Fields:
 - `program_id`, `course_id`, `level_id`, `semester_id`, `bulletin_id`
+- `created_at`, `updated_at`: Timestamps for record creation and modification.
 
 Relationships:
 - Belongs to `Program`, `Course`, `Semester`, `Level`, and `Bulletin`.
@@ -216,17 +219,27 @@ Defines the actual assignment of a lecturer to a course for a specific session.
 Key Fields:
 - `program_course_id`, `session_id`, `semester_id`, `lecturer_id`: The core allocation links.
 - `group_name`: Optional, for splitting a course into groups (e.g., "Group A").
+- `class_option`: The type of class (e.g., "Lecture", "Practical"), often from UMIS.
 - `is_lead`: Flags the main lecturer among grouped allocations.
 - `is_allocated`: A boolean flag indicating if the allocation is confirmed.
 - `class_size`: The number of students in the course or group.
 - `is_de_allocation`: True if the allocation is a direct entry allocation.
 - `source_bulletin_id`: Points to the bulletin the special course was pulled from.
+- `is_pushed_to_umis`: A flag indicating if the allocation has been sent to the external UMIS system.
+- `pushed_to_umis_by_id`: The user who pushed the allocation to UMIS.
+- `pushed_to_umis_at`: The timestamp when the allocation was pushed.
+- `created_at`, `updated_at`: Timestamps for record creation and modification.
 
 Constraints:
 - Composite uniqueness on `(program_course_id, session_id, group_name)` ensures no group duplication per session.
 
+Relationships:
+- Belongs to `ProgramCourse`, `AcademicSession`, `Semester`, and `Lecturer`.
+- `pushed_by`: A relationship to the `User` who pushed the allocation to UMIS.
+- `source_bulletin`: A relationship to the `Bulletin` for DE allocations.
+
 Why It Matters:
-Tracks the actual delivery of courses, supporting multi-lecturer assignments, group-based teaching, and DE allocations.
+Tracks the actual delivery of courses, supporting multi-lecturer assignments, group-based teaching, DE allocations, and integration with external systems.
 
 ✅ Conclusion: System Strengths
 🔁 Curriculum Versioning: Bulletins allow for flexible, historical curriculum tracking.
@@ -236,21 +249,38 @@ Tracks the actual delivery of courses, supporting multi-lecturer assignments, gr
 
 🔹 DepartmentAllocationState
 Purpose:
-Tracks the submission status of course allocations for a department on a per-semester, per-session basis. This model is central to the "submit and lock" workflow.
+Tracks the submission and vetting status of course allocations for a department on a per-semester, per-session basis. This model is central to the "submit and lock" workflow.
 
 Key Fields:
 - `department_id`: Links to the `Department`.
 - `session_id`: Links to the `AcademicSession`.
 - `semester_id`: Links to the `Semester`.
-- `is_submitted`: A boolean flag (`True`/`False`) indicating if the allocation is locked for editing.
+- `is_submitted`: A boolean flag (`True`/`False`) indicating if the allocation is locked for editing by the HOD.
 - `submitted_at`: Timestamp of when the submission occurred.
 - `submitted_by_id`: The user (HOD) who submitted the allocation.
+- `is_vetted`: A boolean flag indicating if the allocation has been approved by a vetter/admin.
+- `vetted_at`: Timestamp of when the vetting occurred.
+- `vetted_by_id`: The user who vetted the allocation.
 
 Constraints:
 - Composite uniqueness on `(department_id, session_id, semester_id)` ensures that there is only one submission state record per department, per semester, per session.
 
 Relationships:
-- Belongs to `Department`, `AcademicSession`, `Semester`, and `User`.
+- Belongs to `Department`, `AcademicSession`, `Semester`.
+- `submitted_by`: A relationship to the `User` who submitted.
+- `vetted_by`: A relationship to the `User` who vetted.
 
 Why It Matters:
-This model enables the workflow where HODs can finalize and "submit" their allocations for a semester, locking them from further edits. It also allows administrators to "unblock" these submissions, making them editable again. This provides a clear and robust state management system for the course allocation process.
+This model enables the workflow where HODs can finalize and "submit" their allocations, locking them from further edits. It also allows administrators to "vet" (approve) or "unblock" these submissions. This provides a clear and robust state management system for the course allocation process.
+
+🔹 AppSetting
+Purpose:
+Stores global application settings that can be changed at runtime without deploying new code, such as enabling or disabling maintenance mode.
+
+Key Fields:
+- `setting_name`: The unique name of the setting (e.g., 'maintenance_mode').
+- `is_enabled`: A boolean flag indicating the status of the setting.
+- `updated_at`: Timestamp for when the setting was last modified.
+
+Why It Matters:
+Provides a flexible way for administrators to manage the application's behavior in real-time, enhancing operational control.

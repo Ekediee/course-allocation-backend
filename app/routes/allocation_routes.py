@@ -1599,7 +1599,7 @@ def push_bulk_allocation_to_umis():
             return jsonify({
                 "status": "partial_failure",
                 "message": f"Completed with {len(failed_pushes)} error(s). Successfully pushed {successful_pushes} allocation(s).\nKeyfields: {', '.join(success_keyfields)}",
-                "errors": failed_pushes,
+                "error": ', '.join(failed_pushes),
             }), 207
 
     except Exception as e:

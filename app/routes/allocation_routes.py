@@ -1413,6 +1413,8 @@ def push_allocation_to_umis():
         failed_pushes = []
         success_keyfields = []
 
+        pc_id = ""
+
         # Loop and push EACH allocation
         for allocation in allocations:
             # Check if necessary data exists before creating the payload
@@ -1469,6 +1471,7 @@ def push_allocation_to_umis():
 
                 successful_pushes += 1
             else:
+                pc_id = allocation.program_course_id
                 failed_pushes.append(
                     f"Course: {payload['courseid']} {payload['classoption']}: {response_data}."
                 )
@@ -1483,6 +1486,16 @@ def push_allocation_to_umis():
                 "message": f"Successfully pushed {successful_pushes} allocation(s) to UMIS.\nKeyfields: {', '.join(success_keyfields)}"
             }), 200
         else:
+            # check if allocation already pushed
+            if "already exists" in ' '.join(failed_pushes).lower():
+                # update all allocations for this program_course_id as pushed
+                allocations_to_update = CourseAllocation.query.filter_by(program_course_id=pc_id).all()
+                for alloc in allocations_to_update:
+                    alloc.is_pushed_to_umis = True
+                    alloc.pushed_to_umis_by_id = current_user.id
+                    alloc.pushed_to_umis_at = datetime.now(timezone.utc)
+                    
+                db.session.commit()
             return jsonify({
                 "status": "partial_failure",
                 "message": f"Completed with {len(failed_pushes)} error(s). Successfully pushed {successful_pushes} allocation(s).\n {', '.join(failed_pushes)}",

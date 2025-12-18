@@ -438,7 +438,7 @@ def update_course_main(course_id, data):
     if new_code and new_code != course.code:
         # Check if the new code already exists in the database
         existing_course = Course.query.filter_by(code=new_code).first()
-        if existing_course:
+        if existing_course and existing_course.id != course.id:
             return None, f"Course code '{new_code}' already exists."
         course.code = new_code
 

@@ -831,6 +831,7 @@ def get_active_semester_allocation_stats():
         active_semester = Semester.query.filter_by(is_active=True).first()
         departments = Department.query.order_by(Department.name).all()
         active_session = AcademicSession.query.filter_by(is_active=True).first()
+        all_allocation = CourseAllocation.query.filter_by(session_id=active_session.id, semester_id=active_semester.id).all()
 
         # Add robust checks
         if not active_semester:
@@ -842,6 +843,8 @@ def get_active_semester_allocation_stats():
             "id": active_semester.id,
             "name": active_semester.name,
         }
+
+        number_of_pushed_allocation = sum(1 for alloc in all_allocation if alloc.is_pushed_to_umis) if all_allocation else 0
         
         department_acad = [d for d in departments if d.name not in ["Academic Planning", "Registry", "General Study Division", "Biosciences and Biotechnology"]]
         
@@ -882,6 +885,7 @@ def get_active_semester_allocation_stats():
         allocation_not_started_count = total_departments - allocation_submitted_count - allocation_in_progress_count
 
         semester_data["total_allocated_course_groups"] = total_allocated_course_groups
+        semester_data["number_of_pushed_allocation"] = number_of_pushed_allocation
         semester_data["allocated_courses"] = total_allocated_courses
         semester_data["allocation_in_progress"] = allocation_in_progress_count
         semester_data["allocation_submitted"] = allocation_submitted_count

@@ -867,7 +867,7 @@ def get_active_semester_allocation_stats():
             # Get the number of actually allocated courses
             allocations, _ = department_allocation_progress(department.id, active_semester.id, active_session.id)
             total_allocated_courses += len(allocations)
-            total_allocated_course_groups += len(all_allocation)
+            
             
             # Check submission state
             state = DepartmentAllocationState.query.filter_by(
@@ -881,6 +881,7 @@ def get_active_semester_allocation_stats():
             elif len(allocations) > 0:
                 allocation_in_progress_count += 1
 
+        total_allocated_course_groups += len(all_allocation)
         total_departments = len(department_acad)
         allocation_not_started_count = total_departments - allocation_submitted_count - allocation_in_progress_count
 

@@ -12,6 +12,18 @@ def get_courses():
     courses = Course.query.order_by(Course.code).all()
     return courses
 
+def delete_course(id):
+
+    course = Course.query.filter_by(id=id).first()
+
+    if not course:
+        return False, "Course not found"
+
+    Course.query.filter_by(id=id).delete()
+
+    db.session.commit()
+    return True, None
+
 # def validate_course_data(code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id):
 #     # Try to find the course by its unique code.
 #     course = Course.query.filter_by(code=code).first()
@@ -67,50 +79,44 @@ def get_or_create_course_and_link(code, title, units, program_id, level_id, seme
     
     return course, program_course
 
-# def create_course(data):
-#     code = data.get('code')
-#     title = data.get('title')
-#     units = data.get('unit')
-#     program_id = data.get('program_id')
-#     level_id = data.get('level_id')
-#     semester_id = data.get('semester_id')
-#     bulletin_id = data.get('bulletin_id')
-#     specialization_id = data.get('specialization_id')
-#     course_type_id = data.get('course_type_id')
+def create_program_course_link(data):
+    """
+    Links a course to a program.
+    """
+    program_id = data.get('program_id') 
+    level_id = data.get('level_id')
+    semester_id = data.get('semester_id')
+    bulletin_id = data.get('bulletin_id')
+    course_id = data.get('course_id')
 
-#     # if Course.query.filter_by(code=code).first():
-#     #     return None, f'Course with code "{code}" already exists'
+    course = Course.query.filter_by(id=course_id).first()
 
-#     # new_course = Course(code=code, title=title, units=units)
-#     # db.session.add(new_course)
-#     # db.session.flush()  # Flush to get the new_course.id
+    # Check if this specific association already exists
+    program_course = ProgramCourse.query.filter_by(
+        course_id=course_id,
+        program_id=program_id,
+        level_id=level_id,
+        semester_id=semester_id,
+        bulletin_id=bulletin_id
+    ).first()
+    
+    if program_course:
+        return None, f'This course ({course.code} - {course.title}) already exists in this program.'
 
-#     course, existing_program_course = validate_course_data(
-#         code, title, units, program_id, level_id, semester_id, bulletin_id, course_type_id
-#     )
+    # Create the ProgramCourse link if not existing
+    if not program_course:
+        program_course = ProgramCourse(
+            course_id=course_id,
+            program_id=program_id,
+            level_id=level_id,
+            semester_id=semester_id,
+            bulletin_id=bulletin_id
+        )
+        db.session.add(program_course)
 
-#     if existing_program_course:
-#         # If the association already exists, return an error.
-#         return None, f'This course ({code}) has already been added to this program for the selected bulletin and semester.'
-
-#     # Create the new ProgramCourse association
-#     program_course = ProgramCourse(
-#         course_id=course.id,
-#         program_id=program_id,
-#         level_id=level_id,
-#         semester_id=semester_id,
-#         bulletin_id=bulletin_id
-#     )
-
-#     if specialization_id:
-#         specialization = Specialization.query.get(specialization_id)
-#         if specialization:
-#             program_course.specializations.append(specialization)
-
-#     db.session.add(program_course)
-#     db.session.commit()
-
-#     return course, None
+    db.session.commit()
+    
+    return program_course, None
 
 def create_course(data):
     # Get all the fields from the request data
@@ -451,7 +457,20 @@ def update_course_main(course_id, data):
 
     return course, None
 
-def delete_course(program_course_id):
+def delete_course(id):
+
+    course = Course.query.get(id)
+
+    if not course:
+
+        return False, "Course not found"
+
+    db.session.delete(course)
+
+    db.session.commit()
+    return True, None
+
+def delete_program_course(program_course_id):
 
     program_course = ProgramCourse.query.get(program_course_id)
 

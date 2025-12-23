@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, current_user
 from app.services import course_service
-from app.services.course_service import get_all_courses, create_course, batch_create_courses, get_courses, update_course, delete_course, update_course_main
+from app.services.course_service import create_program_course_link, delete_program_course, get_all_courses, create_course, batch_create_courses, get_courses, update_course, delete_course, update_course_main
 from .user_routes import _simplify_db_error
 
 course_bp = Blueprint('courses', __name__)
@@ -80,6 +80,45 @@ def handle_get_courses():
 
     return jsonify({"courses": response_data}), 200
 
+@course_bp.route('/main/<int:id>', methods=['DELETE'])
+@jwt_required()
+def handle_delete_courses(id):
+    if not current_user:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    try:
+        success, error = delete_course(id)
+
+        if error:
+            if error == "Course not found":
+                return jsonify({'error': 'Course not found'}), 404
+            return jsonify({'error': error}), 500
+            
+        return '', 204
+    except Exception as e:
+        current_app.logger.error(f"Error deleting course: {str(e)}")
+        if 'foreign key constraint' in str(e).lower():
+            return jsonify({'error': 'Cannot delete course as it is linked to other records.'}), 400
+        
+        return jsonify({'error': f'An error occurred while deleting the course: {str(e)}'}), 500
+
+@course_bp.route('/main/list', methods=['GET'])
+@jwt_required()
+def get_courses_list():
+    if not current_user:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    courses = get_courses()
+    
+    response_data = [
+        {
+            "id": course.id,
+            "name": f"{str(course.code)} - {course.title}",
+        } for course in courses
+    ]
+
+    return jsonify({"courses": response_data}), 200
+
 @course_bp.route('', methods=['POST'])
 @jwt_required()
 def handle_create_course():
@@ -103,6 +142,28 @@ def handle_create_course():
             "title": course.title,
             "unit": course.units
         }
+    }), 201
+
+@course_bp.route('/link_program_course', methods=['POST'])
+@jwt_required()
+def link_program_course():
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized access"}), 403
+
+    data = request.get_json()
+    if not data or not all(k in data for k in ['program_id', 'level_id', 'semester_id', 'bulletin_id', 'course_id']):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    program_course, error = create_program_course_link(data)
+
+    # print("checking program: ", program_course)
+    # print("checking course: ", program_course.course)
+
+    if error:
+        return jsonify({'error': error}), 409
+
+    return jsonify({
+        "msg": f"Linked Course ({program_course.course.code} - {program_course.course.title}) to the Program ({program_course.program.name}) successfully.",
     }), 201
 
 @course_bp.route('/batch', methods=['POST'])
@@ -242,14 +303,21 @@ def handle_delete_course(program_course_id):
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"error": "Unauthorized"}), 403
 
-    success, error = delete_course(program_course_id)
+    try:
+        success, error = delete_program_course(program_course_id)
 
-    if error:
-        if error == "Program course not found":
-            return jsonify({'error': 'Course not found'}), 404
-        return jsonify({'error': error}), 500
+        if error:
+            if error == "Program course not found":
+                return jsonify({'error': 'Course not found'}), 404
+            return jsonify({'error': error}), 500
+            
+        return '', 204
+    except Exception as e:
+        current_app.logger.error(f"Error deleting program course: {str(e)}")
+        if 'foreign key constraint' in str(e).lower():
+            return jsonify({'error': 'Cannot program course as it is linked to other records.'}), 400
         
-    return '', 204
+        return jsonify({'error': f'An error occurred while deleting the program course: {str(e)}'}), 500
 
 @course_bp.route('/department-courses', methods=['POST'])
 @jwt_required()

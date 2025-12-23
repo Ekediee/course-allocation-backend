@@ -1,5 +1,5 @@
 from flask_jwt_extended import jwt_required, current_user
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from sqlalchemy import or_
 from app import db
 from app.models import (
@@ -160,6 +160,21 @@ def update_allocation():
     
     return jsonify({"status": "success", "message": "Course allocation updated successfully."}), 200
 
+@allocation_bp.route('/<int:program_course_id>', methods=['DELETE'])
+@jwt_required()
+def handle_delete_allocation(program_course_id):
+    if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    success, error = allocation_service.delete_allocation(program_course_id)
+
+    if error:
+        if error == "Allocation not found":
+            return jsonify({'error': 'Allocation not found'}), 404
+        return jsonify({'error': error}), 500
+        
+    return '', 204
+
 
 @allocation_bp.route('/list', methods=['GET'])
 @jwt_required()
@@ -241,148 +256,6 @@ def get_allocations_by_department_route():
         return jsonify({"error": error}), 400
 
     return jsonify(allocations)
-
-# @allocation_bp.route('/detailed-list', methods=['GET'])
-# @jwt_required()
-# def get_detailed_course_list_for_allocation():
-#     department = current_user.lecturer.department
-#     programs = Program.query.filter_by(department_id=department.id).all()
-#     semesters = Semester.query.all()
-#     session = AcademicSession.query.filter_by(is_active=True).first()
-
-#     # Get the active bulletin
-#     active_bulletin = Bulletin.query.filter_by(is_active=True).first()
-
-#     if not session:
-#         return jsonify({"error": "No active session found"}), 404
-    
-#     # Check if active bulletin exists
-#     if not active_bulletin:
-#         return jsonify({"error": "No active bulletin found"}), 404
-
-#     # Pre-fetch semester objects for logic handling
-#     first_semester = Semester.query.filter_by(name='First Semester').first()
-#     second_semester = Semester.query.filter_by(name='Second Semester').first()
-#     third_semester = Semester.query.filter_by(name='Summer Semester').first()
-
-#     first_and_second_sem_ids = [s.id for s in [first_semester, second_semester] if s]
-
-#     # Get all ProgramCourse IDs relevant to the programs in this department.
-#     program_ids = [p.id for p in programs]
-#     relevant_pc_ids_query = db.session.query(ProgramCourse.id).filter(
-#         ProgramCourse.program_id.in_(program_ids),
-#         ProgramCourse.bulletin_id == active_bulletin.id # review this line - it may prevent allocation from prev bulletins
-#     )
-
-#     # Fetch all allocations for these courses in the current session in ONE query.
-#     all_allocations_for_session = CourseAllocation.query.filter(
-#         CourseAllocation.session_id == session.id,
-#         CourseAllocation.program_course_id.in_(relevant_pc_ids_query)
-#     ).all()
-
-#     # Create a fast lookup dictionary (map).
-#     allocations_map = defaultdict(list)
-#     for alloc in all_allocations_for_session:
-#         key = (alloc.program_course_id, alloc.semester_id)
-        
-#         allocations_map[key].append(alloc)
-
-
-#     output = []
-#     for semester in semesters:
-#         semester_data = {"sessionId": session.id, "sessionName": session.name, "id": semester.id, "name": semester.name, "programs": []}
-        
-#         for program in programs:
-#             program_data = {"id": program.id, "name": program.name, "levels": []}
-            
-#             level_ids = db.session.query(ProgramCourse.level_id).filter_by(
-#                 program_id=program.id,
-#                 bulletin_id=active_bulletin.id # review - it may prevent levels from other bulletins
-#             ).distinct().all()
-            
-#             for level_row in level_ids:
-#                 level_id = level_row.level_id
-#                 level = db.session.get(Level, level_id)
-#                 level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
-                
-#                 # Conditional logic for fetching courses
-#                 if third_semester and semester.id == third_semester.id:
-#                     if not first_and_second_sem_ids:
-#                         continue
-#                     program_courses_query = ProgramCourse.query.filter(
-#                         ProgramCourse.program_id == program.id,
-#                         ProgramCourse.level_id == level.id,
-#                         ProgramCourse.semester_id.in_(first_and_second_sem_ids),
-#                         ProgramCourse.bulletin_id == active_bulletin.id
-#                     )
-#                 else:
-#                     program_courses_query = ProgramCourse.query.filter_by(
-#                         program_id=program.id, 
-#                         level_id=level.id,
-#                         semester_id=semester.id,
-#                         bulletin_id=active_bulletin.id
-#                     )
-
-#                 program_courses = program_courses_query.distinct()
-
-#                 for pc in program_courses:
-#                     course = pc.course
-
-#                     # Access the specializations for the program_course
-#                     specializations = [spec.name for spec in pc.specializations]
-                    
-#                     # Check if the allocation exists for the semester and course.
-#                     allocations = allocations_map.get((pc.id, semester.id))
-
-#                     # Process the list to get all lecturer names.
-#                     allocated_to_names = []
-#                     if allocations:
-#                         # Create a list of names, safely checking for profiles
-#                         allocated_to_names = [
-#                             alloc.lecturer_profile.user_account[0].name
-#                             for alloc in allocations 
-#                             if alloc.lecturer_profile and alloc.lecturer_profile.user_account
-#                         ]
-
-#                     if len(specializations) > 0:
-#                         for spec in specializations:
-
-#                             level_data["courses"].append({
-#                                 "id": str(course.id),
-#                                 "programCourseId": pc.id,
-#                                 "code": course.code,
-#                                 "title": course.title,
-#                                 "unit": course.units,
-#                                 "specialization": spec,
-#                                 "isAllocated": bool(allocations),
-#                                 "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
-#                             })
-#                     else:
-#                         level_data["courses"].append({
-#                             "id": str(course.id),
-#                             "programCourseId": pc.id,
-#                             "code": course.code,
-#                             "title": course.title,
-#                             "unit": course.units,
-#                             "specialization": 'General',
-#                             "isAllocated": bool(allocations),
-#                             "allocatedTo": ", ".join(allocated_to_names) if allocated_to_names else None
-#                         })
-                
-#                 # It sorts by specialization name first, then by the course code.
-#                 level_data["courses"].sort(key=lambda c: (c['specialization'], c['code']))
-
-#                 if level_data["courses"]:
-#                     program_data["levels"].append(level_data)
-
-#             program_data["levels"].sort(key=lambda level: int(level['name'].split()[0]))    
-
-#             if program_data["levels"]:
-#                 semester_data["programs"].append(program_data)
-        
-#         output.append(semester_data)
-        
-#     return jsonify(output)
 
 @allocation_bp.route('/detailed-list', methods=['GET'])
 @jwt_required()
@@ -801,108 +674,6 @@ def is_number(value):
     except ValueError:
         return False
 
-# @allocation_bp.route("/allocate", methods=["POST"])
-# @jwt_required()
-# def allocate_course():
-#     # Validate HOD access
-#     if not current_user or not current_user.is_hod:
-#         return jsonify({"error": "Unauthorized: Only HODs can allocate courses."}), 403
-
-#     data_list = request.get_json()
-    
-#     # 1. Find active session
-#     session = AcademicSession.query.filter_by(is_active=True).first()
-#     if not session:
-#         return jsonify({"error": "No active academic session found."}),
-    
-#     results = []
-
-#     for index, data in enumerate(data_list):
-#         try:    
-#             if is_number(data.get("semesterId")) is False:
-#                 semester = Semester.query.filter_by(name=data.get("semesterId")).first()
-#                 semester_id = semester.id
-#             else:
-#                 semester_id = int(data.get("semesterId"))
-
-#             if is_number(data.get("programId")) is False:
-#                 program = Program.query.filter_by(name=data.get("programId")).first()
-#                 program_id = program.id
-#             else:
-#                 program_id = int(data.get("programId"))
-#             level_id = int(data.get("levelId"))
-#             course_id = int(data.get("courseId"))
-#             class_size = int(data.get("classSize", 0))
-#             is_allocated = data.get("isAllocated", False)
-#             group_name = data.get("groupName")
-#             lecturer_name = data.get("allocatedTo")
-
-#             # 2. Find program_course
-#             pc = ProgramCourse.query.filter_by(
-#                 program_id=program_id,
-#                 course_id=course_id,
-#                 level_id=level_id,
-#                 semester_id=semester_id
-#             ).first()
-            
-#             if not pc:
-#                 return jsonify({
-#                     "status": "error",
-#                     "message": "ProgramCourse not found for given input."
-#                 }), 404
-
-#             # 3. Resolve lecturer by full name
-#             lecturer = (
-#                 Lecturer.query.join(User)
-#                 .filter(User.name == lecturer_name, Lecturer.department_id == current_user.department_id)
-#                 .first()
-#             )
-#             if not lecturer:
-#                 return jsonify({
-#                     "status": "error",
-#                     "message": f"Lecturer '{lecturer_name}' not found."
-#                 }), 404
-
-#             # 4. Check if this allocation already exists (same session, program_course, group_name)
-#             existing = CourseAllocation.query.filter_by(
-#                 program_course_id=pc.id,
-#                 session_id=session.id,
-#                 group_name=group_name
-#             ).first()
-
-#             if existing:
-#                 return jsonify({"error": f"Allocation already exists for group '{group_name}'"}), 409
-            
-#             # 5. Create new CourseAllocation
-#             allocation = CourseAllocation(
-#                 program_course_id=pc.id,
-#                 session_id=session.id,
-#                 semester_id=semester_id,
-#                 lecturer_id=lecturer.id,
-#                 source_bulletin_id=pc.bulletin_id,  # Assuming bulletin_id is available in ProgramCourse
-#                 is_de_allocation=False,       # Assuming this is a normal allocation
-#                 group_name=group_name,
-#                 is_lead=(group_name.lower() == "group a"),
-#                 is_allocated=is_allocated,
-#                 class_size=class_size
-#             )
-            
-#             db.session.add(allocation)
-#             results.append({
-#                 "index": index,
-#                 "message": f"Course allocated successfully to {lecturer_name} for group '{group_name}'"
-#             })
-
-#         except Exception as e:
-#             results.append({"index": index, "error": str(e)})
-
-#     db.session.commit()
-
-#     return jsonify({
-#         "status": "success",
-#         "message": "Course allocated successfully",
-#     }), 201
-
 @allocation_bp.route("/allocate", methods=["POST"])
 @jwt_required()
 def allocate_course():
@@ -1114,90 +885,6 @@ def get_hod_allocations_by_specialization():
             output.append(semester_data)
 
     return jsonify(output)
-
-# @allocation_bp.route('/courses-by-bulletin', methods=['POST'])
-# @jwt_required()
-# def get_courses_for_allocation_by_bulletin():
-#     """
-#     Fetches courses for a specific program, semester, and bulletin,
-#     organized by level, for the purpose of allocation.
-#     """
-#     # Authorization: Ensure user is HOD
-#     if not current_user or not current_user.is_hod:
-#         return jsonify({'msg': 'Access denied. Only HODs can view this data.'}), 403
-
-#     # Get query parameters
-#     data = request.get_json()
-#     bulletin_name = data.get('bulletin')
-#     program_name = data.get('program')
-#     semester_name = data.get('semester')
-    
-#     # Fetch bulletin from DB
-#     bulletin = Bulletin.query.filter_by(name=bulletin_name).first()
-#     program = Program.query.filter_by(name=program_name).first()
-#     semester = Semester.query.filter_by(name=semester_name).first()
-
-#     if not bulletin:
-#         return jsonify({"error": f"Bulletin '{bulletin_name}' not found."}), 404
-
-#     # Check submission status
-#     is_submitted, _ = allocation_service.get_allocation_status(current_user.department_id, semester.id)
-
-#     # Fetch program courses based on criteria
-#     program_courses = ProgramCourse.query.filter_by(
-#         program_id=program.id,
-#         semester_id=semester.id,
-#         bulletin_id=bulletin.id
-#     ).all()
-
-#      # Get all relevant ProgramCourse IDs first.
-#     pc_ids = [pc.id for pc in program_courses]
-    
-#     # Fetch all allocations for these courses in ONE query.
-#     all_allocations = CourseAllocation.query.filter(
-#         CourseAllocation.program_course_id.in_(pc_ids),
-#         CourseAllocation.semester_id == semester.id
-#     ).all()
-
-#     # Create a fast lookup dictionary (map).
-#     # Key: program_course_id, Value: allocation object
-#     allocations_map = {alloc.program_course_id: alloc for alloc in all_allocations}
-
-#     # Structure the data by level
-#     levels_data = {}
-#     for pc in program_courses:
-#         level = pc.level
-#         course = pc.course
-
-#         # get all allocated courses for the semester and program
-#         allocation = allocations_map.get(pc.id)
-
-#         if level.id not in levels_data:
-#             levels_data[level.id] = {
-#                 "id": str(level.id),
-#                 "name": f"{level.name} Level",
-#                 "courses": []
-#             }
-
-#         levels_data[level.id]["courses"].append({
-#             "id": str(course.id),
-#             "code": course.code,
-#             "title": course.title,
-#             "unit": course.units,
-#             "isAllocated": bool(allocation),
-#             "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
-#         })
-
-#     # Convert the dictionary to a list for the final output
-#     output = list(levels_data.values())
-
-#     # Sort the list of levels numerically by name.
-#     output.sort(key=lambda level: int(level['name'].split()[0]))
-
-#     return jsonify({
-#         "is_submitted": is_submitted,
-#         "levels": output
-#     })
 
 @allocation_bp.route('/courses-by-bulletin', methods=['POST'])
 @jwt_required()
@@ -1504,7 +1191,7 @@ def push_allocation_to_umis():
 
     except Exception as e:
         # Catch any unexpected errors (e.g., database connection issues)
-        # Log the error `e` here in a real application
+        current_app.logger.error(f"Error pushing allocation: {str(e)}")
         return jsonify({"error": f"An unexpected server error occurred: {str(e)}"}), 500
     
 @allocation_bp.route('/push_bulk_allocation_to_umis', methods=['POST'])
@@ -1627,7 +1314,7 @@ def push_bulk_allocation_to_umis():
 
     except Exception as e:
         db.session.rollback()
-        # Log the full error `e` here for debugging
+        current_app.logger.error(f"Error pushing allocation: {str(e)}")
         return jsonify({"error": f"An unexpected server error occurred: {str(e)}"}), 500
 
 @allocation_bp.route('/metrics', methods=['GET'])

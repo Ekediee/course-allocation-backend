@@ -47,6 +47,46 @@ def auth_user(data):
             temp_dept = umisid.split("-")[1]
             umisid = umisid.split("-")[0]
 
+        if "it" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "biochem" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "edu" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "ph" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "basic" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "irm" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "estate" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "mech" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "lang" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
+        if "elect" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
         # Check for an existing token first
         umis_token = session.get('umis_token')
 
@@ -81,22 +121,52 @@ def auth_user(data):
 
         # For development/testing purposes
         if "computer" in temp_dept:
-            umisid = "EBIE222"
+            umisid = os.getenv('COMPUTER')
 
         if "software" in temp_dept:
-            umisid = "MAI2010"
+            umisid = os.getenv('SOFTWARE')
 
         if "mass_com" in temp_dept:
-            umisid = "ATAK111"
+            umisid = os.getenv('MASS_COM')
 
         if "religious" in temp_dept:
-            umisid = "DICK2010"
+            umisid = os.getenv('RELIGIOUS')
 
         if "nutrition" in temp_dept:
-            umisid = "ANI101"
+            umisid = os.getenv('NUTRITION')
 
         if "anatomy" in temp_dept:
-            umisid = "ADEL444"
+            umisid = os.getenv('ANATOMY')
+
+        if "it" in temp_dept:
+            umisid = os.getenv('IT')
+
+        if "biochem" in temp_dept:
+            umisid = os.getenv('BIOCHEM')
+
+        if "edu" in temp_dept:
+            umisid = os.getenv('EDU')
+
+        if "ph" in temp_dept:
+            umisid = os.getenv('PH')
+
+        if "basic" in temp_dept:
+            umisid = os.getenv('BASIC')
+
+        if "irm" in temp_dept:
+            umisid = os.getenv('IRM')
+
+        if "estate" in temp_dept:
+            umisid = os.getenv('ESTATE')
+
+        if "mech" in temp_dept:
+            umisid = os.getenv('MECH')
+
+        if "lang" in temp_dept:
+            umisid = os.getenv('LANG')
+
+        if "elect" in temp_dept:
+            umisid = os.getenv('ELECT')
 
         # FETCH INSTRUCTOR DATA
         instructor_api = f"{os.getenv('UMIS_INSTRUCTOR_URL')}{umisid}"

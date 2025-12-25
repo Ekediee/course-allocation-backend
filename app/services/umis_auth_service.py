@@ -79,7 +79,7 @@ def auth_user(data):
             temp_dept = umisid.split("-")[1]
             umisid = umisid.split("-")[0]
 
-        if "lang" in umisid:
+        if "elang" in umisid:
             temp_dept = umisid.split("-")[1]
             umisid = umisid.split("-")[0]
 
@@ -162,7 +162,7 @@ def auth_user(data):
         if "mech" in temp_dept:
             umisid = os.getenv('MECH')
 
-        if "lang" in temp_dept:
+        if "elang" in temp_dept:
             umisid = os.getenv('LANG')
 
         if "elect" in temp_dept:

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, current_user
 from app.services.admin_user_service import get_all_admin_users, create_admin_user, create_admin_users_batch
-from app.models.models import AppSetting
+from app.models.models import AppSetting, Semester
 from app.extensions import db
 
 admin_user_bp = Blueprint('admin_users', __name__, url_prefix='/api/v1/admin')
@@ -138,3 +138,79 @@ def get_close_allocation_status():
     is_closed = setting.is_enabled if setting else False
     
     return jsonify({"isAllocationClosed": is_closed})
+
+@admin_user_bp.route('/first-semester-status', methods=['GET'])
+def get_first_semester_status():
+    """
+    Returns the current state of first semester.
+    """
+    first_sem = Semester.query.filter_by(name='First Semester').first()
+    
+    is_active = first_sem.is_active if first_sem else False
+    
+    return jsonify({"isFirstSemesterActive": is_active})
+
+@admin_user_bp.route('/first-semester-status', methods=['POST'])
+@jwt_required()
+def set_first_semester_status():
+    """
+    Sets first semester active status.
+    """
+
+    if not current_user.is_superadmin:
+        return jsonify({"msg": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    enable = data.get('enable')
+
+    if enable is None or not isinstance(enable, bool):
+        return jsonify({"error": "Missing or invalid 'enable' field. Must be true or false."}), 400
+
+    # Find the setting, or create it if it doesn't exist
+    setting = Semester.query.filter_by(name='First Semester').first()
+    if not setting:
+        setting = Semester(name='First Semester')
+        db.session.add(setting)
+
+    setting.is_active = enable
+    db.session.commit()
+
+    return jsonify({"message": f"First semester active state has been {'enabled' if enable else 'disabled'}."}), 200
+
+@admin_user_bp.route('/second-semester-status', methods=['GET'])
+def get_second_semester_status():
+    """
+    Returns the current state of second semester.
+    """
+    second_sem = Semester.query.filter_by(name='Second Semester').first()
+    
+    is_active = second_sem.is_active if second_sem else False
+    
+    return jsonify({"isSecondSemesterActive": is_active})
+
+@admin_user_bp.route('/second-semester-status', methods=['POST'])
+@jwt_required()
+def set_second_semester_status():
+    """
+    Sets second semester active status.
+    """
+
+    if not current_user.is_superadmin:
+        return jsonify({"msg": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    enable = data.get('enable')
+
+    if enable is None or not isinstance(enable, bool):
+        return jsonify({"error": "Missing or invalid 'enable' field. Must be true or false."}), 400
+
+    # Find the setting, or create it if it doesn't exist
+    setting = Semester.query.filter_by(name='Second Semester').first()
+    if not setting:
+        setting = Semester(name='Second Semester')
+        db.session.add(setting)
+
+    setting.is_active = enable
+    db.session.commit()
+
+    return jsonify({"message": f"Second semester active state has been {'enabled' if enable else 'disabled'}."}), 200

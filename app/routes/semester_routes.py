@@ -16,7 +16,8 @@ def get_all_semesters():
     data = [
         {
             "id": semester.id,
-            "name": semester.name
+            "name": semester.name,
+            "is_active": semester.is_active
         } for semester in semesters if semester.name != "Summer Semester"  # Exclude Summer Semester
     ]
     return jsonify(data), 200

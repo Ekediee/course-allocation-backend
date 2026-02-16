@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Deployment Guide&colon; Course Allocation Backend</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="deployment-guide-course-allocation-backend">Deployment Guide: Course Allocation Backend</h1>
+<h2 id="1-introduction">1. Introduction</h2>
+<p>This document provides a comprehensive, step-by-step guide for deploying the Course Allocation Backend application on a Linux server using a MySQL database. This guide is written for a server administrator and assumes minimal prior knowledge of the application stack.</p>
+<p>The production environment will consist of:</p>
+<ul>
+<li><strong>Nginx:</strong> As a reverse proxy to handle incoming web traffic.</li>
+<li><strong>Gunicorn:</strong> As a WSGI server to run the Python Flask application.</li>
+<li><strong>MySQL:</strong> As the production database.</li>
+<li><strong>Systemd:</strong> To manage the application process and ensure it runs continuously.</li>
+</ul>
+<p>This guide primarily uses commands for <strong>Debian/Ubuntu</strong>. Notes are provided for <strong>Fedora/RHEL</strong> where commands differ.</p>
+<hr>
+<h2 id="2-prerequisites">2. Prerequisites</h2>
+<h3 id="21-server-preparation">2.1. Server Preparation</h3>
+<ol>
+<li>
+<p><strong>Access Your Server:</strong>
+Connect to your Linux server via SSH.</p>
+</li>
+<li>
+<p><strong>Update System Packages:</strong>
+Ensure your server's package list and installed packages are up-to-date.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># For Debian/Ubuntu</span>
+sudo apt update &amp;&amp; sudo apt upgrade -y
+
+<span class="hljs-comment"># For Fedora/RHEL</span>
+sudo dnf update -y
+</code></pre>
+</li>
+<li>
+<p><strong>Install Essential Tools:</strong>
+Install Python, the virtual environment tool, development tools for building packages, and Git.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># For Debian/Ubuntu</span>
+sudo apt install -y python3 python3-venv python3-dev build-essential git
+
+<span class="hljs-comment"># For Fedora/RHEL</span>
+sudo dnf install -y python3 python3-devel @development-tools git
+</code></pre>
+</li>
+</ol>
+<h3 id="22-create-a-dedicated-application-user">2.2. Create a Dedicated Application User</h3>
+<p>For security, the application should not run as the <code>root</code> user. Let's create a dedicated user account named <code>course_app</code>.</p>
+<pre><code class="language-bash">sudo adduser course_app
+</code></pre>
+<p>You will be prompted to set a password and fill in user information. You can leave the information fields blank by pressing <code>Enter</code>.</p>
+<hr>
+<h2 id="3-database-setup-mysql">3. Database Setup (MySQL)</h2>
+<p>We will use MySQL as the production database.</p>
+<ol>
+<li>
+<p><strong>Install MySQL Server:</strong></p>
+<pre><code class="language-bash"><span class="hljs-comment"># For Debian/Ubuntu</span>
+sudo apt install -y mysql-server
+
+<span class="hljs-comment"># For Fedora/RHEL</span>
+sudo dnf install -y mysql-server
+sudo systemctl start mysqld
+sudo systemctl <span class="hljs-built_in">enable</span> mysqld
+</code></pre>
+</li>
+<li>
+<p><strong>Secure the MySQL Installation:</strong>
+Run the security script included with MySQL. It will ask you to set a root password, remove anonymous users, and disable remote root login. It is highly recommended to answer 'Yes' to these prompts.</p>
+<pre><code class="language-bash">sudo mysql_secure_installation
+</code></pre>
+</li>
+<li>
+<p><strong>Create the Database and Database User:</strong>
+Log in to the MySQL interactive terminal as the root user.</p>
+<pre><code class="language-bash">sudo mysql
+</code></pre>
+<p>Now, run the following SQL commands to create the database and a user for our application.</p>
+<pre><code class="language-sql"><span class="hljs-comment">-- Create the database for the application</span>
+<span class="hljs-keyword">CREATE</span> DATABASE course_allocation_db;
+
+<span class="hljs-comment">-- Create a dedicated user for the application that can only connect from localhost</span>
+<span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">USER</span> <span class="hljs-string">&#x27;course_app_user&#x27;</span>@<span class="hljs-string">&#x27;localhost&#x27;</span> IDENTIFIED <span class="hljs-keyword">BY</span> <span class="hljs-string">&#x27;EinTH8vpYB9fCww8&#x27;</span>;
+
+<span class="hljs-comment">-- Grant all privileges on the new database to the new user</span>
+<span class="hljs-keyword">GRANT</span> <span class="hljs-keyword">ALL</span> PRIVILEGES <span class="hljs-keyword">ON</span> course_allocation_db.<span class="hljs-operator">*</span> <span class="hljs-keyword">TO</span> <span class="hljs-string">&#x27;course_app_user&#x27;</span>@<span class="hljs-string">&#x27;localhost&#x27;</span>;
+
+<span class="hljs-comment">-- Apply the changes</span>
+FLUSH PRIVILEGES;
+
+<span class="hljs-comment">-- Exit the mysql terminal</span>
+EXIT;
+</code></pre>
+</li>
+</ol>
+<hr>
+<h2 id="4-application-setup">4. Application Setup</h2>
+<p>Now we will switch to our dedicated user to set up the application code.</p>
+<ol>
+<li>
+<p><strong>Log in as the Application User:</strong></p>
+<pre><code class="language-bash">su - course_app
+</code></pre>
+</li>
+<li>
+<p><strong>Clone the Application Repository:</strong>
+Clone the project code from its Git repository into the user's home directory.</p>
+<pre><code class="language-bash">
+git <span class="hljs-built_in">clone</span> https://github.com/Ekediee/course-allocation-backend.git /home/course_app/course-allocation-backend
+</code></pre>
+<p><em>Note: If you are moving the files manually, ensure they are placed in <code>/home/course_app/course-allocation-backend</code>.</em></p>
+</li>
+<li>
+<p><strong>Navigate to the Project Directory:</strong></p>
+<pre><code class="language-bash"><span class="hljs-built_in">cd</span> /home/course_app/course-allocation-backend
+</code></pre>
+</li>
+<li>
+<p><strong>Create and Activate a Python Virtual Environment:</strong>
+A virtual environment keeps the project's dependencies isolated.</p>
+<pre><code class="language-bash">python3 -m venv venv
+<span class="hljs-built_in">source</span> venv/bin/activate
+</code></pre>
+<p>Your shell prompt should now be prefixed with <code>(venv)</code>.</p>
+</li>
+<li>
+<p><strong>Install Dependencies:</strong>
+Install the required Python packages from <code>requirements.txt</code> and add Gunicorn for serving the application.</p>
+<pre><code class="language-bash">pip install -r requirements.txt gunicorn
+</code></pre>
+</li>
+</ol>
+<hr>
+<h2 id="5-application-configuration">5. Application Configuration</h2>
+<p>The application uses a <code>.env</code> file for configuration. We need to create one for the production environment.</p>
+<ol>
+<li>
+<p><strong>Create the <code>.env</code> file:</strong></p>
+<pre><code class="language-bash">nano .<span class="hljs-built_in">env</span>
+</code></pre>
+</li>
+<li>
+<p><strong>Add Production Configuration:</strong>
+Copy and paste the following content into the file. <strong>You must replace the placeholder values.</strong></p>
+<pre><code class="language-ini"><span class="hljs-comment"># Flask Configuration</span>
+<span class="hljs-attr">FLASK_APP</span>=run.py
+<span class="hljs-attr">FLASK_ENV</span>=production
+
+<span class="hljs-comment"># IMPORTANT: Generate a strong, random key for security</span>
+<span class="hljs-comment"># Use the command: openssl rand -hex 32</span>
+<span class="hljs-attr">SECRET_KEY</span>=z39ffchTKCaHrcKshTcPM0vsMaA2_inD6XzYOuKGPhQ
+
+<span class="hljs-comment"># Database Connection URL for MySQL</span>
+<span class="hljs-comment"># Use the password you created in Step 3.3</span>
+<span class="hljs-attr">DATABASE_URL</span>=mysql+pymysql://course_app_user:EinTH8vpYB9fCww8@localhost/course_allocation_db
+
+<span class="hljs-comment"># JWT (Authentication) Configuration</span>
+<span class="hljs-comment"># IMPORTANT: Generate another strong, random key</span>
+<span class="hljs-attr">JWT_SECRET_KEY</span>=z39ffchTKCaHrcKshTcPM0vsMaA2_inD6XzYOuKGPhQ
+<span class="hljs-attr">JWT_COOKIE_SECURE</span>=<span class="hljs-literal">True</span>
+<span class="hljs-attr">JWT_COOKIE_CSRF_PROTECT</span>=<span class="hljs-literal">True</span>
+</code></pre>
+<ul>
+<li>To generate the required secret keys, you can use <code>openssl rand -hex 32</code> in your terminal.</li>
+<li>Press <code>Ctrl+X</code>, then <code>Y</code>, then <code>Enter</code> to save and exit <code>nano</code>.</li>
+</ul>
+</li>
+</ol>
+<h3 id="51-email-configuration-important">5.1. Email Configuration (Important)</h3>
+<p>For features that require sending emails (such as password resets or notifications), you must configure the email server settings in the <code>.env</code> file. If email is not configured, these features will not work.</p>
+<p>Add the following variables to your <code>.env</code> file, customized for your email provider (e.g., Gmail, SendGrid, or your own SMTP server):</p>
+<pre><code class="language-ini"><span class="hljs-comment"># Email Sending Configuration</span>
+<span class="hljs-attr">MAIL_SERVER</span>=smtp.example.com
+<span class="hljs-attr">MAIL_PORT</span>=<span class="hljs-number">587</span>
+<span class="hljs-attr">MAIL_USE_TLS</span>=<span class="hljs-literal">True</span>
+<span class="hljs-attr">MAIL_USE_SSL</span>=<span class="hljs-literal">False</span>
+<span class="hljs-attr">MAIL_USERNAME</span>=your-email@example.com
+<span class="hljs-attr">MAIL_PASSWORD</span>=your-email-password-or-app-key
+<span class="hljs-attr">MAIL_DEFAULT_SENDER</span>=(<span class="hljs-string">&quot;Your App Name&quot;</span> &lt;noreply@example.com&gt;)
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li><code>MAIL_USE_TLS</code> and <code>MAIL_USE_SSL</code> are mutually exclusive. Use the one required by your provider.</li>
+<li>For services like Gmail, you may need to generate an &quot;App Password&quot; instead of using your regular account password.</li>
+<li>The <code>MAIL_DEFAULT_SENDER</code> is the &quot;From&quot; address that will appear on outgoing emails.</li>
+</ul>
+<h3 id="6-run-database-migrations">6. Run Database Migrations</h3>
+<p>With the configuration in place, we can now set up the database schema using the existing migrations.</p>
+<pre><code class="language-bash"><span class="hljs-comment"># Ensure your virtual environment is still active</span>
+flask db upgrade
+</code></pre>
+<p>This command will connect to the MySQL database and create all the necessary tables.</p>
+<hr>
+<h2 id="7-setting-up-the-gunicorn-service">7. Setting Up the Gunicorn Service</h2>
+<p>To ensure the application runs reliably in the background, we will create a <code>systemd</code> service file for Gunicorn.</p>
+<ol>
+<li>
+<p><strong>Exit from the <code>course_app</code> user session:</strong></p>
+<pre><code class="language-bash"><span class="hljs-built_in">exit</span>
+</code></pre>
+<p>You should now be back in your <code>sudo</code> user session.</p>
+</li>
+<li>
+<p><strong>Create the Systemd Service File:</strong></p>
+<pre><code class="language-bash">sudo nano /etc/systemd/system/course-allocation.service
+</code></pre>
+</li>
+<li>
+<p><strong>Add the Service Configuration:</strong>
+Copy and paste the following content into the file.</p>
+<pre><code class="language-ini"><span class="hljs-section">[Unit]</span>
+<span class="hljs-attr">Description</span>=Gunicorn instance to serve the Course Allocation Backend
+<span class="hljs-attr">After</span>=network.target
+
+<span class="hljs-section">[Service]</span>
+<span class="hljs-attr">User</span>=course_app
+<span class="hljs-attr">Group</span>=www-data
+<span class="hljs-attr">WorkingDirectory</span>=/home/course_app/course-allocation-backend
+<span class="hljs-attr">Environment</span>=<span class="hljs-string">&quot;PATH=/home/course_app/course-allocation-backend/venv/bin&quot;</span>
+<span class="hljs-attr">ExecStart</span>=/home/course_app/course-allocation-backend/venv/bin/gunicorn --workers <span class="hljs-number">3</span> --bind unix:course-allocation.sock -m <span class="hljs-number">007</span> run:app
+
+<span class="hljs-section">[Install]</span>
+<span class="hljs-attr">WantedBy</span>=multi-user.target
+</code></pre>
+</li>
+<li>
+<p><strong>Start and Enable the Service:</strong></p>
+<pre><code class="language-bash">sudo systemctl start course-allocation
+sudo systemctl <span class="hljs-built_in">enable</span> course-allocation
+</code></pre>
+</li>
+<li>
+<p><strong>Check the Service Status:</strong>
+Verify that the service started without errors.</p>
+<pre><code class="language-bash">sudo systemctl status course-allocation
+</code></pre>
+<p>Look for a green <code>active (running)</code> status. If there are errors, you can check the logs with <code>sudo journalctl -u course-allocation</code>. Press <code>Q</code> to exit the status/log view.</p>
+</li>
+</ol>
+<hr>
+<h2 id="8-configure-nginx-as-a-reverse-proxy">8. Configure Nginx as a Reverse Proxy</h2>
+<p>Nginx will sit in front of our application, handling web traffic and forwarding it to Gunicorn.</p>
+<ol>
+<li>
+<p><strong>Install Nginx:</strong></p>
+<pre><code class="language-bash"><span class="hljs-comment"># For Debian/Ubuntu</span>
+sudo apt install -y nginx
+
+<span class="hljs-comment"># For Fedora/RHEL</span>
+sudo dnf install -y nginx
+</code></pre>
+</li>
+<li>
+<p><strong>Create an Nginx Configuration File:</strong></p>
+<pre><code class="language-bash">sudo nano /etc/nginx/sites-available/course-allocation
+</code></pre>
+</li>
+<li>
+<p><strong>Add the Nginx Configuration:</strong>
+Copy and paste the following, replacing <code>your_domain_or_server_ip</code> with your server's public domain name or IP address.</p>
+<pre><code class="language-nginx"><span class="hljs-section">server</span> {
+    <span class="hljs-attribute">listen</span> <span class="hljs-number">80</span>;
+    <span class="hljs-attribute">server_name</span> your_domain_or_server_ip;
+
+    <span class="hljs-section">location</span> / {
+        <span class="hljs-attribute">include</span> proxy_params;
+        <span class="hljs-attribute">proxy_pass</span> http://unix:/home/course_app/course-allocation-backend/course-allocation.sock;
+    }
+}
+</code></pre>
+</li>
+<li>
+<p><strong>Enable the Nginx Site:</strong>
+Link the configuration file to the <code>sites-enabled</code> directory.</p>
+<pre><code class="language-bash">sudo <span class="hljs-built_in">ln</span> -s /etc/nginx/sites-available/course-allocation /etc/nginx/sites-enabled
+<span class="hljs-comment"># It&#x27;s good practice to remove the default config</span>
+sudo <span class="hljs-built_in">rm</span> /etc/nginx/sites-enabled/default
+</code></pre>
+</li>
+<li>
+<p><strong>Test and Restart Nginx:</strong></p>
+<pre><code class="language-bash">sudo nginx -t  <span class="hljs-comment"># Test the configuration for syntax errors</span>
+sudo systemctl restart nginx
+</code></pre>
+</li>
+<li>
+<p><strong>Adjust Firewall (if applicable):</strong>
+If you are using a firewall like <code>ufw</code>, allow traffic to Nginx.</p>
+<pre><code class="language-bash">sudo ufw allow <span class="hljs-string">&#x27;Nginx Full&#x27;</span>
+</code></pre>
+</li>
+</ol>
+<hr>
+<h2 id="9-final-verification">9. Final Verification</h2>
+<p>The deployment should now be complete.</p>
+<ul>
+<li>
+<p><strong>Access the Application:</strong> Open a web browser and navigate to <code>http://your_domain_or_server_ip</code>. You should not see a &quot;Welcome to Nginx&quot; page or a 502 Bad Gateway error. While the backend may not have a frontend to display, a successful connection means the services are working together.</p>
+</li>
+<li>
+<p><strong>Troubleshooting:</strong></p>
+<ul>
+<li><strong>502 Bad Gateway Error:</strong> This usually means Nginx can't communicate with Gunicorn. Check the status of the <code>course-allocation</code> service (<code>sudo systemctl status course-allocation</code>) and its logs (<code>sudo journalctl -u course-allocation</code>).</li>
+<li><strong>Other Errors:</strong> Check the Nginx error logs at <code>/var/log/nginx/error.log</code>.</li>
+</ul>
+</li>
+</ul>
+<p>Your application is now deployed and running.</p>
+<hr>
+<h2 id="10-future-updates-and-scaling">10. Future Updates and Scaling</h2>
+<p>As the application evolves, you will need to deploy updates. This section covers the process for deploying new code and scaling the application to handle more traffic.</p>
+<h3 id="101-deploying-application-updates">10.1. Deploying Application Updates</h3>
+<p>Follow these steps to update the application with new code from the repository.</p>
+<ol>
+<li>
+<p><strong>Log in as the Application User:</strong></p>
+<pre><code class="language-bash">su - course_app
+</code></pre>
+</li>
+<li>
+<p><strong>Navigate to the Project Directory:</strong></p>
+<pre><code class="language-bash"><span class="hljs-built_in">cd</span> /home/course_app/course-allocation-backend
+</code></pre>
+</li>
+<li>
+<p><strong>Pull the Latest Code:</strong>
+Fetch the latest changes from the main branch of your repository.</p>
+<pre><code class="language-bash">git pull origin main
+</code></pre>
+<p><em>(Note: Replace <code>main</code> with your primary branch name if it's different, e.g., <code>master</code>)</em></p>
+</li>
+<li>
+<p><strong>Activate the Virtual Environment:</strong></p>
+<pre><code class="language-bash"><span class="hljs-built_in">source</span> venv/bin/activate
+</code></pre>
+</li>
+<li>
+<p><strong>Update Dependencies:</strong>
+If new packages have been added to <code>requirements.txt</code>, install them.</p>
+<pre><code class="language-bash">pip install -r requirements.txt
+</code></pre>
+</li>
+<li>
+<p><strong>Run New Database Migrations:</strong>
+If the update includes changes to the database model, apply the new migrations.</p>
+<pre><code class="language-bash">flask db upgrade
+</code></pre>
+</li>
+<li>
+<p><strong>Exit and Restart the Service:</strong>
+Log out of the <code>course_app</code> user session and restart the application service to apply all changes.</p>
+<pre><code class="language-bash"><span class="hljs-built_in">exit</span>
+sudo systemctl restart course-allocation
+</code></pre>
+</li>
+</ol>
+<h3 id="102-scaling-the-application">10.2. Scaling the Application</h3>
+<p>There are two primary ways to scale the application:</p>
+<h4 id="a-vertical-scaling">A. Vertical Scaling</h4>
+<p>This involves increasing the resources (CPU, RAM) of the single server where the application is hosted. This is the simplest approach but has limits. If you find that the server's CPU or memory usage is consistently high, you may need to upgrade your server plan.</p>
+<h4 id="b-horizontal-scaling">B. Horizontal Scaling</h4>
+<p>This involves distributing the load across multiple instances of the application.</p>
+<ol>
+<li>
+<p><strong>Increase Gunicorn Workers:</strong>
+The simplest form of horizontal scaling is to increase the number of Gunicorn worker processes on your existing server. This allows the application to handle more concurrent requests.</p>
+<ul>
+<li><strong>Edit the systemd service file:</strong><pre><code class="language-bash">sudo nano /etc/systemd/system/course-allocation.service
+</code></pre>
+</li>
+<li><strong>Adjust the <code>--workers</code> flag:</strong> A common recommendation is <code>(2 * number_of_cpu_cores) + 1</code>. For a 2-core server, you might use 5 workers.<pre><code class="language-ini"><span class="hljs-comment"># Example for 5 workers</span>
+<span class="hljs-attr">ExecStart</span>=/home/course_app/course-allocation-backend/venv/bin/gunicorn --workers <span class="hljs-number">5</span> --bind unix:course-allocation.sock -m <span class="hljs-number">007</span> run:app
+</code></pre>
+</li>
+<li><strong>Reload and restart the service:</strong><pre><code class="language-bash">sudo systemctl daemon-reload
+sudo systemctl restart course-allocation
+</code></pre>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Deploying to Multiple Servers:</strong>
+For very high traffic, you can deploy the application across multiple identical servers. This involves:</p>
+<ul>
+<li>Provisioning new servers and following this entire deployment guide on each one.</li>
+<li>Ensuring all servers connect to the <strong>same central MySQL database</strong>. The database should be hosted on a dedicated, powerful server that all application servers can access.</li>
+<li>Setting up a <strong>Load Balancer</strong> (e.g., using Nginx, HAProxy, or a cloud provider's load balancer) to distribute incoming traffic evenly across your application servers.</li>
+</ul>
+</li>
+</ol>
+
+            
+            
+        </body>
+        </html>

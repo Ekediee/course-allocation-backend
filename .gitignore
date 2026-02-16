@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # project docs
-project_docs/
+project_docs/res/
 seed*.py
 create_admin.py
 

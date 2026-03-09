@@ -2,12 +2,14 @@
 
 **Version:** 1.0  
 **Status:** Draft  
-**Date:** 2026-02-16
+**Document Owner:** ESMIS Team
+
+**Date:** 2026-02-17
 
 ---
 
 ## 1. Executive Summary
-The **Automated Timetable System** is a strategic enhancement to the Course Allocation Platform. It aims to eliminate the manual complexity of scheduling by using advanced algorithms to generate conflict-free, optimized academic timetables. The system will function as a standalone service with its own dedicated frontend, ensuring scalability and focus, while utilizing the existing rich data from the Course Allocation backend.
+The **Automated Timetable System** is a strategic enhancement to the Course Allocation Platform. It aims to eliminate the manual complexity of scheduling by using advanced algorithms to generate conflict-free, optimized academic timetables. The system will function as a standalone service with its own dedicated frontend, ensuring scalability and focus, while utilizing the existing rich data from the Course Allocation system.
 
 ## 2. Problem Statement
 Currently, creating the university timetable is a manual, error-prone process.
@@ -39,7 +41,7 @@ Currently, creating the university timetable is a manual, error-prone process.
 *   **Lecturer Constraints**:
     *   **Busy/Blocked**: Support for Study Leave or Official Days Off (Hard Constraint).
     *   **Adjunct Windows**: Specific available hours (e.g., "Mon 4pm-6pm only").
-    *   **Preferences**: Soft preferences (e.g., "Prefers Mornings") which the engine tries to honor.
+    *   **Preferences**: Soft preferences (e.g., "Prefers Mornings") which the engine will tries to honor.
 
 ### 4.3. Resource Management
 *   **Room Inventory**: Detailed database of all classrooms, labs, and capacities.
@@ -56,18 +58,18 @@ The system will adopt a **Sidecar / Standalone API Architecture**:
 
 *   **Course Allocation Backend (Existing)**: Source of truth for allocations, courses, and lecturers.
 *   **Timetable Service (New)**: A dedicated Flask Microservice/API.
-    *   **Database**: Connects to the main PostgreSQL database (Shared Data Model).
+    *   **Database**: Connects to the main MySQL database (Shared Data Model).
     *   **API**: Exposes endpoints for the Timetable Frontend.
     *   **Engine**: Runs the heavy OR-Tools computation globally or per-department.
 
-## 6. User User Stories
+## 6. User Stories
 
 | ID | As a... | I want to... | So that... |
 | :--- | :--- | :--- | :--- |
 | **US-1** | **Admin** | Define available Rooms and their capacities | The system knows where classes can hold. |
-| **US-2** | **Lecturer** | Submit my constraints (e.g., Study Leave) | The system doesn't book me when I'm unavailable. |
-| **US-3** | **Scheduler** | Trigger "Pass 1" for GEDS courses | General studies are locked in before departments start. |
-| **US-4** | **HOD** | Trigger "Pass 2" for my Department | My department's courses are scheduled around the GEDS slots. |
+| **US-2** | **Dept Admin** | Submit lecturer constraints (e.g., Study Leave) | The system doesn't book me when I'm unavailable. |
+| **US-3** | **GEDS Admin** | Trigger "Pass 1" for GEDS courses | General studies are locked in before departments start. |
+| **US-4** | **Dept Admin** | Trigger "Pass 2" for my Department | My department's courses are scheduled around the GEDS slots. |
 | **US-5** | **Student** | View my level's timetable | I know where to be and see no overlaps. |
 
 ## 7. Assumptions & Constraints

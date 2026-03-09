@@ -14,6 +14,7 @@ from app.services.allocation_service import get_allocation_status_overview
 from collections import defaultdict
 from flask import session
 from datetime import datetime, timezone
+import re
 
 
 allocation_bp = Blueprint('allocations', __name__)
@@ -1116,10 +1117,22 @@ def push_allocation_to_umis():
             # session = allocation.session.name
             semester = allocation.semester.name
 
+            course_code = allocation.program_course.course.code
+            
+
             if semester.lower() == 'first semester':
                 quarterid = f"{allocation.session.name}.1"
             elif semester.lower() == 'second semester':
-                quarterid = f"{allocation.session.name}.2"
+                # Check if the course code is level 100
+                match = re.search(r'\d+', course_code)
+                if match:
+                    number_part = match.group()
+                    is_level_100 = number_part.startswith("1")
+                
+                if is_level_100:
+                    quarterid = f"{allocation.session.name}.2C"
+                else:
+                    quarterid = f"{allocation.session.name}.2"
             else:
                 quarterid = f"{allocation.session.name}.3"
 

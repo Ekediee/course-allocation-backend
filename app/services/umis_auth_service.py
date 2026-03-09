@@ -172,7 +172,7 @@ def auth_user(data):
         if "elect" in temp_dept:
             umisid = os.getenv('ELECT')
 
-        if "elect" in temp_dept:
+        if "physio" in temp_dept:
             umisid = os.getenv('PHYSIO')
 
         # FETCH INSTRUCTOR DATA

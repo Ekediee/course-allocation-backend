@@ -1118,16 +1118,16 @@ def push_allocation_to_umis():
             semester = allocation.semester.name
 
             course_code = allocation.program_course.course.code
+
+            is_level_100, error = allocation_service.identify_100_level_code(course_code)
             
 
             if semester.lower() == 'first semester':
-                quarterid = f"{allocation.session.name}.1"
+                if is_level_100:
+                    quarterid = f"{allocation.session.name}.1C"
+                else:
+                    quarterid = f"{allocation.session.name}.1"
             elif semester.lower() == 'second semester':
-                # Check if the course code is level 100
-                match = re.search(r'\d+', course_code)
-                if match:
-                    number_part = match.group()
-                    is_level_100 = number_part.startswith("1")
                 
                 if is_level_100:
                     quarterid = f"{allocation.session.name}.2C"

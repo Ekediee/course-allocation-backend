@@ -717,3 +717,20 @@ def get_active_semester_allocation_stats():
         # Log the error e
         return None, f"An unexpected error occurred: {str(e)}"
 
+def identify_100_level_code(course_code):
+    """
+    Identifies if a course code belongs to 100 level based on its format.
+    This is a simple heuristic and may need adjustments based on actual course code patterns.
+    """
+    import re
+
+    # Check if the course code is level 100
+    match = re.search(r'\d+', course_code)
+    if match:
+        number_part = match.group()
+        is_level_100 = number_part.startswith("1") or number_part.startswith("01")
+
+        return is_level_100, None
+    
+    return None, "Invalid course code format"
+

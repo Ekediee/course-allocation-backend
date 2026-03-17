@@ -214,3 +214,41 @@ def set_second_semester_status():
     db.session.commit()
 
     return jsonify({"message": f"Second semester active state has been {'enabled' if enable else 'disabled'}."}), 200
+
+@admin_user_bp.route('/summer-semester-status', methods=['GET'])
+def get_summer_semester_status():
+    """
+    Returns the current state of summer semester.
+    """
+    summer_sem = Semester.query.filter_by(name='Summer Semester').first()
+    
+    is_active = summer_sem.is_active if summer_sem else False
+    
+    return jsonify({"isSummerSemesterActive": is_active})
+
+@admin_user_bp.route('/summer-semester-status', methods=['POST'])
+@jwt_required()
+def set_summer_semester_status():
+    """
+    Sets summer semester active status.
+    """
+
+    if not current_user.is_superadmin:
+        return jsonify({"msg": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    enable = data.get('enable')
+
+    if enable is None or not isinstance(enable, bool):
+        return jsonify({"error": "Missing or invalid 'enable' field. Must be true or false."}), 400
+
+    # Find the setting, or create it if it doesn't exist
+    setting = Semester.query.filter_by(name='Summer Semester').first()
+    if not setting:
+        setting = Semester(name='Summer Semester')
+        db.session.add(setting)
+
+    setting.is_active = enable
+    db.session.commit()
+
+    return jsonify({"message": f"Summer semester active state has been {'enabled' if enable else 'disabled'}."}), 200

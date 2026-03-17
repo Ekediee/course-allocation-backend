@@ -197,7 +197,7 @@ class AcademicSession(db.Model):
 
 class CourseAllocation(db.Model):
     __table_args__ = (
-        db.UniqueConstraint('program_course_id', 'session_id', 'group_name', name='uq_allocation_group'),
+        db.UniqueConstraint('program_course_id', 'session_id', 'semester_id', 'group_name', name='uq_allocation_group'),
     )
 
     id = db.Column(db.Integer, primary_key=True)

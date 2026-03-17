@@ -691,6 +691,7 @@ def allocate_course():
     if not session:
         return jsonify({"error": "No active academic session found."}), 400
 
+    print("Received allocation data:", data_list)  # Debugging log
     try:
         allocations_to_create = []
 
@@ -700,7 +701,7 @@ def allocate_course():
             # check if semesterId is a number - it could semester name if coming from specialization allocation
             semesterid = data.get("semesterId")
             if is_number(semesterid) is False:
-                semester = Semester.query.filter_by(name=semesterid).first()
+                semester = Semester.query.filter_by(id=semesterid).first()
                 if not semester:
                     raise ValueError(f"Error for '{data.get('groupName')}': Semester '{semesterid}' not found.")
                 semester_id = semester.id
@@ -719,16 +720,32 @@ def allocate_course():
             # program_id = int(data.get("programId"))
             level_id = int(data.get("levelId"))
             course_id = int(data.get("courseId"))
+            semeid = int(data.get("semesterId"))
             lecturer_name = data.get("allocatedTo") # Assuming frontend now sends ID
             group_name = data.get("groupName")
 
-            # Find program_course
-            pc = ProgramCourse.query.filter_by(
-                program_id=program_id,
-                course_id=course_id,
-                level_id=level_id,
-                semester_id=semester_id
-            ).first()
+            print("Checking data:", data)
+            # Check if semester is summer semester and adjust logic accordingly
+            semest = Semester.query.filter_by(id=semeid).first()
+
+            print(f"Semester lookup for '{semeid}': {semest}")
+            if semest and semest.name == "Summer Semester":
+                pc = ProgramCourse.query.filter_by(
+                    program_id=program_id,
+                    course_id=course_id,
+                    level_id=level_id
+                ).first()
+                print(f"Summer semester detected. ProgramCourse query: program_id={program_id}, course_id={course_id}, level_id={level_id}")
+                print(f"Found ProgramCourse: {pc}")
+            else:
+                # Find program_course
+                pc = ProgramCourse.query.filter_by(
+                    program_id=program_id,
+                    course_id=course_id,
+                    level_id=level_id,
+                    semester_id=semester_id
+                ).first()
+
             if not pc:
                 # Use raise to fail the entire transaction immediately
                 raise ValueError(f"Error for '{group_name}': Course not found in the specified program/level.")
@@ -749,6 +766,7 @@ def allocate_course():
             existing = CourseAllocation.query.filter_by(
                 program_course_id=pc.id,
                 session_id=session.id,
+                semester_id=semester_id,
                 group_name=group_name
             ).first()
             if existing:
@@ -793,7 +811,7 @@ def allocate_course():
         # Catch unexpected server errors
         db.session.rollback()
         # It's good practice to log the full error here
-        # logger.error(f"Unexpected error during allocation: {e}")
+        current_app.logger.error(f"Unexpected error during allocation: {e}")
         return jsonify({"status": "error", "message": "An unexpected server error occurred."}), 500
 
 @allocation_bp.route('/list-by-specialization', methods=['GET'])

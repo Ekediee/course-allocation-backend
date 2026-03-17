@@ -333,7 +333,7 @@ def get_allocations_by_department(department_id, semester_id):
     semester = db.session.get(Semester, semester_id)
     session = AcademicSession.query.filter_by(is_active=True).first()
     bulletins = Bulletin.query.all()
-
+    
     if not programs:
         # If no programs exist, return empty list immediately
         return [], None
@@ -346,7 +346,7 @@ def get_allocations_by_department(department_id, semester_id):
         session_id=session.id,
         semester_id=semester.id
     ).first()
-
+    
     if state:
         vetted = state.is_vetted
         submitted = state.is_submitted
@@ -389,12 +389,19 @@ def get_allocations_by_department(department_id, semester_id):
 
                 level_data = {"id": str(level.id), "name": f"{level.name} Level", "courses": []}
                 
-                program_courses = ProgramCourse.query.filter_by(
-                    program_id=program.id, 
-                    level_id=level.id,
-                    semester_id=semester.id,
-                    # bulletin_id=bulletin.id # only current bulletin courses
-                ).distinct()
+                if semester and semester.name == "Summer Semester":
+                    program_courses = ProgramCourse.query.filter_by(
+                        program_id=program.id, 
+                        level_id=level.id
+                        # bulletin_id=bulletin.id # only current bulletin courses
+                    ).distinct()
+                else:
+                    program_courses = ProgramCourse.query.filter_by(
+                        program_id=program.id, 
+                        level_id=level.id,
+                        semester_id=semester.id,
+                        # bulletin_id=bulletin.id # only current bulletin courses
+                    ).distinct()
 
                 for pc in program_courses:
                     course = pc.course

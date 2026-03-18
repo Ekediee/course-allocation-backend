@@ -571,9 +571,19 @@ def get_allocation_status_overview():
 
                     submitted = False 
                     vet_status = "Not Vetted" 
-                    status = "Not Started" 
+                    status = "Not Started"
 
-                    courses = department_courses(department.id, semester.id, active_session.id)
+                    # Fetch list of courses in a semester for this department based on active bulletin
+                    if semester.name == "Summer Semester":
+                        first_semest = Semester.query.filter_by(name="First Semester").first()
+                        second_semest = Semester.query.filter_by(name="Second Semester").first()
+                        
+                        # For summer semester, we consider all courses from both first and second semesters that are in the active bulletin.
+                        first_sem_courses = department_courses(department.id, first_semest.id, active_session.id)
+                        second_sem_courses = department_courses(department.id, second_semest.id, active_session.id)
+                        courses = list(set(first_sem_courses + second_sem_courses))
+                    else:
+                        courses = department_courses(department.id, semester.id, active_session.id)
 
                     allco, _ = department_allocation_progress(department.id, semester.id, active_session.id)
                     

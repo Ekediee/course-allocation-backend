@@ -36,6 +36,25 @@ def get_allocation_submission_status(semester_id):
 
     return jsonify({"is_submitted": is_submitted}), 200
 
+@allocation_bp.route('/status/summer/<string:semester_name>', methods=['GET'])
+@jwt_required()
+def get_allocation_submission_summer_status(semester_name):
+    """
+    Checks if the allocations for the HOD's department for summer semester are submitted.
+    """
+    if not current_user.is_hod:
+        return jsonify({"error": "Unauthorized: Only HODs can check submission status."}), 403
+    
+    semester = Semester.query.filter_by(name=semester_name).first()
+    
+    department_id = current_user.department_id
+    is_submitted, error = allocation_service.get_allocation_status(department_id, semester.id)
+
+    if error:
+        return jsonify({"error": error}), 404
+
+    return jsonify({"is_submitted": is_submitted}), 200
+
 
 @allocation_bp.route('/submit', methods=['POST'])
 @jwt_required()
@@ -933,12 +952,30 @@ def get_courses_for_allocation_by_bulletin():
     # Check submission status
     is_submitted, _ = allocation_service.get_allocation_status(current_user.department_id, semester.id)
 
-    # Fetch program courses based on criteria, eager loading specializations for performance
-    program_courses = ProgramCourse.query.filter_by(
-        program_id=program.id,
-        semester_id=semester.id,
-        bulletin_id=bulletin.id
-    ).options(db.joinedload(ProgramCourse.specializations)).all()
+    # Base query that will be modified
+    base_query = ProgramCourse.query.filter(
+        ProgramCourse.program_id == program.id,
+        ProgramCourse.bulletin_id == bulletin.id,
+    )
+
+    # Pre-fetch semester objects for logic handling
+    first_semester = Semester.query.filter_by(name='First Semester').first()
+    second_semester = Semester.query.filter_by(name='Second Semester').first()
+    first_and_second_sem_ids = [s.id for s in [first_semester, second_semester] if s]
+
+
+    if semester_name == "Summer Semester":
+        program_courses = base_query.filter(
+            ProgramCourse.semester_id.in_(first_and_second_sem_ids)
+        ).options(db.joinedload(ProgramCourse.specializations)).distinct().all()
+        
+    else:
+        # Fetch program courses based on criteria, eager loading specializations for performance
+        program_courses = ProgramCourse.query.filter_by(
+            program_id=program.id,
+            semester_id=semester.id,
+            bulletin_id=bulletin.id
+        ).options(db.joinedload(ProgramCourse.specializations)).all()
 
     # Performance Optimization 
     pc_ids = [pc.id for pc in program_courses]

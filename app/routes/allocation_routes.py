@@ -710,7 +710,7 @@ def allocate_course():
     if not session:
         return jsonify({"error": "No active academic session found."}), 400
 
-    print("Received allocation data:", data_list)  # Debugging log
+    # print("Received allocation data:", data_list)  # Debugging log
     try:
         allocations_to_create = []
 
@@ -720,7 +720,7 @@ def allocate_course():
             # check if semesterId is a number - it could semester name if coming from specialization allocation
             semesterid = data.get("semesterId")
             if is_number(semesterid) is False:
-                semester = Semester.query.filter_by(id=semesterid).first()
+                semester = Semester.query.filter_by(name=semesterid).first()
                 if not semester:
                     raise ValueError(f"Error for '{data.get('groupName')}': Semester '{semesterid}' not found.")
                 semester_id = semester.id
@@ -739,23 +739,21 @@ def allocate_course():
             # program_id = int(data.get("programId"))
             level_id = int(data.get("levelId"))
             course_id = int(data.get("courseId"))
-            semeid = int(data.get("semesterId"))
+            semeid = semester_id
             lecturer_name = data.get("allocatedTo") # Assuming frontend now sends ID
             group_name = data.get("groupName")
 
-            print("Checking data:", data)
+            
             # Check if semester is summer semester and adjust logic accordingly
             semest = Semester.query.filter_by(id=semeid).first()
 
-            print(f"Semester lookup for '{semeid}': {semest}")
             if semest and semest.name == "Summer Semester":
                 pc = ProgramCourse.query.filter_by(
                     program_id=program_id,
                     course_id=course_id,
                     level_id=level_id
                 ).first()
-                print(f"Summer semester detected. ProgramCourse query: program_id={program_id}, course_id={course_id}, level_id={level_id}")
-                print(f"Found ProgramCourse: {pc}")
+                
             else:
                 # Find program_course
                 pc = ProgramCourse.query.filter_by(

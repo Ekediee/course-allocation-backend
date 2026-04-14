@@ -231,7 +231,7 @@ def update_course_allocation(data_list, department_id):
 
     first_item = data_list[0]
     semester_id = first_item.get('semesterId')
-
+    
     # Check if the allocation is submitted
     is_submitted, error = get_allocation_status(department_id, semester_id)
     if error:
@@ -251,13 +251,23 @@ def update_course_allocation(data_list, department_id):
         level_id = first_item['levelId']
         semester_id = first_item.get('semesterId')
 
+        # check if semester is summer semester, if yes, we need to find the courses in both first and second semester for the program
+        semester = Semester.query.filter_by(id=semester_id).first()
+
         # Find the ProgramCourse ID, which links everything
-        program_course = ProgramCourse.query.filter_by(
-            program_id=program_id,
-            course_id=course_id,
-            level_id=level_id,
-            semester_id=semester_id
-        ).first()
+        if semester and semester.name == "Summer Semester":
+            program_course = ProgramCourse.query.filter_by(
+                program_id=program_id,
+                course_id=course_id,
+                level_id=level_id
+            ).first()
+        else:
+            program_course = ProgramCourse.query.filter_by(
+                program_id=program_id,
+                course_id=course_id,
+                level_id=level_id,
+                semester_id=semester_id
+            ).first()
 
         if not program_course:
             return None, "Course not found in program"

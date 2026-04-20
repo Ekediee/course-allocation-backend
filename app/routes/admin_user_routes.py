@@ -1,8 +1,11 @@
+import os
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, current_user
 from app.services.admin_user_service import get_all_admin_users, create_admin_user, create_admin_users_batch
 from app.models.models import AppSetting, Semester
 from app.extensions import db
+from app.services.umis_auth_service import auth_dev_user
 
 admin_user_bp = Blueprint('admin_users', __name__, url_prefix='/api/v1/admin')
 
@@ -252,3 +255,28 @@ def set_summer_semester_status():
     db.session.commit()
 
     return jsonify({"message": f"Summer semester active state has been {'enabled' if enable else 'disabled'}."}), 200
+
+@admin_user_bp.route('/umis-faculty-list', methods=['GET'])
+@jwt_required()
+def get_umis_faculty_list():
+    """
+    Fetches the list of faculties from UMIS. Accessible by superadmins and vetters.
+    """
+    if not current_user or not (current_user.is_vetter or current_user.is_superadmin):
+        return jsonify({"msg": "Unauthorized"}), 403
+    
+    
+    umisid = os.getenv('API_DEV_ID')
+    umis_token, auth_error = auth_dev_user()
+    
+    if auth_error:
+        return jsonify({"error": f"Failed to authenticate with UMIS: {auth_error}"}), 500
+    
+    # This function should call the UMIS service to fetch the faculty list
+    from app.services.admin_user_service import fetch_umis_faculties
+    faculties, error = fetch_umis_faculties(umis_token, umisid)
+    
+    if error:
+        return jsonify({"error": error}), 500
+    
+    return jsonify({"faculties": faculties}), 200

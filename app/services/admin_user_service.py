@@ -2,10 +2,12 @@ import random
 import string
 from threading import Thread
 from flask import current_app
+import requests
 from app.models.models import User, AdminUser, Department
 from app.extensions import db, mail
 from sqlalchemy.exc import IntegrityError
 from flask_mail import Message
+import os
 
 def send_async_email(app, msg):
     with app.app_context():
@@ -121,3 +123,44 @@ def create_admin_users_batch(users_data):
             created_count += 1
     
     return created_count, errors
+
+def fetch_umis_faculties(umis_token, umisid):
+    """
+    Fetches faculties from UMIS
+    """
+    print(f"Fetching faculty data from UMIS for ID: {umisid} with token: {umis_token}")
+    # FETCH CLASS OPTION DATA
+    faculty_api = f"{os.getenv('UMIS_INSTRUCTOR_URL')}{umisid}"
+    header = {
+        'action': 'read',
+        'authorization': umis_token
+    }
+    resp = requests.get(faculty_api, headers=header)
+
+    if resp.status_code != 200:
+        return None, f"Failed to fetch faculty data ({resp.status_code})"
+    
+    faculty_list = resp.json()
+    
+    if 'data' not in faculty_list or not isinstance(faculty_list['data'], list):
+        return None, "Invalid faculty data format from UMIS"
+
+    if 'data' in faculty_list:
+        sorted_faculty_list = sorted(
+            [{
+                'id': faculty.get('instructorid'),
+                'instructorname': faculty.get('instructorname'),
+                'email': faculty.get('email'),
+                'departmentid': faculty.get('departmentid'),
+                'departmentname': faculty.get('departmentname'),
+                'schoolid': faculty.get('schoolid'),
+                'schoolname': faculty.get('schoolname'),
+            } for faculty in faculty_list.get('data')],
+            key=lambda faculty: faculty.get('name', '')
+        )
+
+        return sorted_faculty_list, None
+                        
+    return None, "Faculty not found in UMIS data"
+    
+

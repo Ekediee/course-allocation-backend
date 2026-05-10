@@ -3,7 +3,7 @@ import base64
 import requests
 import os
 from dotenv import load_dotenv
-from flask import session
+from flask import session, current_app
 
 # Load the variables from .env
 load_dotenv()
@@ -120,6 +120,7 @@ def auth_user(data):
                 return None, f"UMIS auth failed ({response.status_code})"
             
             token_data = response.json()
+            current_app.logger.info(f"UMIS auth response: {token_data}") # Log the full response for debugging
             umis_token = token_data.get('access_token')
             if not umis_token:
                 return None, "No access token received from UMIS"

@@ -49,7 +49,7 @@ def login():
     if not department:
         return jsonify({"msg": f"Department '{department_name}' not found in the system"}), 404
     
-    current_app.logger.info(f"UMIS authentication successful for {instructor_name} ({umisid}) in department {department_name} - HOD: {is_hod}")
+    # current_app.logger.info(f"UMIS authentication successful for {instructor_name} ({umisid}) in department {department_name} - HOD: {is_hod}")
 
     # Find user in local DB by name
     user = User.query.filter(User.name.ilike(f"%{instructor_name.strip()}%")).first()

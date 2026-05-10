@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import create_access_token, set_access_cookies
 from app.models.models import User, Department, Lecturer
 from app.services.umis_auth_service import auth_user
@@ -48,6 +48,8 @@ def login():
     department = Department.query.filter_by(name=department_name).first()
     if not department:
         return jsonify({"msg": f"Department '{department_name}' not found in the system"}), 404
+    
+    current_app.logger.info(f"UMIS authentication successful for {instructor_name} ({umisid}) in department {department_name} - HOD: {is_hod}")
 
     # Find user in local DB by name
     user = User.query.filter(User.name.ilike(f"%{instructor_name.strip()}%")).first()

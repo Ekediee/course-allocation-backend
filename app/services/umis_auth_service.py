@@ -91,6 +91,10 @@ def auth_user(data):
             temp_dept = umisid.split("-")[1]
             umisid = umisid.split("-")[0]
 
+        if "bsad" in umisid:
+            temp_dept = umisid.split("-")[1]
+            umisid = umisid.split("-")[0]
+
         # Check for an existing token first
         umis_token = session.get('umis_token')
 
@@ -174,6 +178,9 @@ def auth_user(data):
 
         if "physio" in temp_dept:
             umisid = os.getenv('PHYSIO')
+
+        if "bsad" in temp_dept:
+            umisid = os.getenv('BSAD')
 
         # FETCH INSTRUCTOR DATA
         instructor_api = f"{os.getenv('UMIS_INSTRUCTOR_URL')}{umisid}"

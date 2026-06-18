@@ -52,7 +52,15 @@ def login():
     # current_app.logger.info(f"UMIS authentication successful for {instructor_name} ({umisid}) in department {department_name} - HOD: {is_hod}")
 
     # Find user in local DB by name
-    user = User.query.filter(User.name.ilike(f"%{instructor_name.strip()}%")).first()
+    # user = User.query.filter(User.name.ilike(f"%{instructor_name.strip()}%")).first()
+
+    # Look up the lecturer record by staff_id first
+    lecturer = Lecturer.query.filter_by(staff_id=staff_id).first()
+    user = None
+
+    if lecturer:
+        # If the lecturer exists, find the user linked to this lecturer
+        user = User.query.filter_by(lecturer_id=lecturer.id).first()
 
     if is_hod:
         # Find the current HOD in the department and update their role to 'lecturer'
@@ -61,11 +69,13 @@ def login():
             current_hod.role = 'lecturer'
             db.session.add(current_hod)
 
+    # If no user/lecturer was found, create them both safely
     if not user:
-        # Create a new user if they don't exist
-        new_lecturer = Lecturer(staff_id=staff_id, department_id=department.id)
-        db.session.add(new_lecturer)
-        db.session.flush()  # Flush to get the new_lecturer.id
+        if not lecturer:
+            # Create a new lecturer if they don't exist
+            new_lecturer = Lecturer(staff_id=staff_id, department_id=department.id)
+            db.session.add(new_lecturer)
+            db.session.flush()  # Flush to get the new_lecturer.id
 
         generated_email = generate_email_from_name(instructor_name)
 
@@ -82,7 +92,11 @@ def login():
         # Update existing user's role if they are now a HOD
         if is_hod and user.role != 'hod':
             user.role = 'hod'
-            db.session.add(user)
+            # db.session.add(user)
+
+        # Optional: Sync their department or name if it changed in UMIS
+        user.department_id = department.id 
+        db.session.add(user)
 
     db.session.commit()
 

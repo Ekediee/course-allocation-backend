@@ -70,12 +70,36 @@ def get_session():
     if not current_user or not (current_user.is_superadmin or current_user.is_vetter):
         return jsonify({"msg": "Unauthorized – Only superadmin can fetch sessions"}), 403
 
-    current_session = AcademicSession.query.filter_by(is_active=True).first()
-    
+    current_session = AcademicSession.query.order_by(AcademicSession.is_active.desc()).all()
+
     return jsonify({
         "session": [{
             "id": current_session.id,
             "name": current_session.name,
             "is_active": current_session.is_active
-        }]
+        } for current_session in current_session]
     }), 200
+
+@session_bp.route('/update', methods=['PUT'])
+@jwt_required()
+def update_session():
+
+    if not current_user or not (current_user.is_superadmin):
+        return jsonify({"error": "Unauthorized – Only superadmin can update sessions"}), 403
+
+    data = request.get_json()
+    session_id = data.get('session_id')
+
+    # Deactivate current active sessions
+    AcademicSession.query.update({AcademicSession.is_active: False})
+
+    session_to_activate = AcademicSession.query.get(session_id)
+
+    if not session_to_activate:
+        return jsonify({'error': 'Session not found'}), 404
+
+    session_to_activate.is_active = True
+
+    db.session.commit()
+
+    return jsonify({'message': 'Session updated successfully'}), 200

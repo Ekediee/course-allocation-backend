@@ -286,6 +286,14 @@ def get_detailed_course_list_for_allocation():
     session = AcademicSession.query.filter_by(is_active=True).first()
     active_bulletin = Bulletin.query.filter_by(is_active=True).first()
 
+    # Debugging
+    # current_app.logger.info("=== /detailed-list DIAGNOSTICS ===")
+    # current_app.logger.info(f"  Department     : id={department.id}, name={department.name}")
+    # current_app.logger.info(f"  Programs       : {[(p.id, p.name) for p in programs]}")
+    # current_app.logger.info(f"  Active Semesters: {[(s.id, s.name) for s in semesters]}")
+    # current_app.logger.info(f"  Active Session : id={session.id if session else None}, name={session.name if session else None}")
+    # current_app.logger.info(f"  Active Bulletin: id={active_bulletin.id if active_bulletin else None}, name={active_bulletin.name if active_bulletin else None}")
+
     if not session:
         return jsonify({"error": "No active session found"}), 404
     if not active_bulletin:

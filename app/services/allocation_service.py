@@ -33,6 +33,9 @@ def push_allocation_to_umis(payload, token):
         
         response_data = response.json()
 
+        # Log payload using Flask logger
+        # current_app.logger.info(f"Response from UMIS:\n{json.dumps(response_data, indent=2)}")
+
         # Interpret the response from UMIS.
         if response_data.get("ResultCode") == 0:
             # On success, return a tuple: (True, the full parsed dictionary)

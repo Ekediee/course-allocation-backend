@@ -1207,6 +1207,9 @@ def push_allocation_to_umis():
                 "maxclass": str(allocation.class_size),
             }
 
+            # Log payload using Flask logger
+            # current_app.logger.info(f"Pushing payload to UMIS:\n{json.dumps(payload, indent=2)}")
+
             # print(f"Pushing payload for {payload['courseid']} ({payload['classoption']}) to UMIS:", payload)
             
             # Push to UMIS

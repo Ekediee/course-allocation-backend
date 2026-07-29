@@ -1184,16 +1184,16 @@ def push_allocation_to_umis():
             
 
             if semester.lower() == 'first semester':
-                if is_level_100:
-                    quarterid = f"{allocation.session.name}.1C"
-                else:
-                    quarterid = f"{allocation.session.name}.1"
+                # if is_level_100:
+                #     quarterid = f"{allocation.session.name}.1C"
+                # else:
+                quarterid = f"{allocation.session.name}.1"
             elif semester.lower() == 'second semester':
                 
-                if is_level_100:
-                    quarterid = f"{allocation.session.name}.2C"
-                else:
-                    quarterid = f"{allocation.session.name}.2"
+                # if is_level_100:
+                #     quarterid = f"{allocation.session.name}.2C"
+                # else:
+                quarterid = f"{allocation.session.name}.2"
             else:
                 quarterid = f"{allocation.session.name}.3"
 

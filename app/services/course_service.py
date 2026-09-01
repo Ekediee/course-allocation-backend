@@ -662,4 +662,36 @@ def get_courses_by_department(department_id, semester_id):
         
     return output, None
 
+
+
+def get_courses_by_type(course_type_id):
+    """
+    Returns all courses matching the given course_type_id, grouped by program.
+    Each group contains the program id, program name, and a list of courses
+    with their code, title, and unit.
+    """
+    from collections import defaultdict
+
+    program_courses = (
+        ProgramCourse.query
+        .join(ProgramCourse.course)
+        .filter(Course.course_type_id == course_type_id)
+        .all()
+    )
+
+    grouped = defaultdict(lambda: {"id": None, "name": None, "courses": []})
+
+    for pc in program_courses:
+        prog = pc.program
+        course = pc.course
+        grouped[prog.id]["id"] = prog.id
+        grouped[prog.id]["name"] = prog.name
+        grouped[prog.id]["courses"].append({
+            "id": course.id,
+            "code": course.code,
+            "title": course.title,
+            "unit": course.units,
+        })
+
+    return list(grouped.values()), None
     

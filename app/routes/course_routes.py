@@ -342,3 +342,22 @@ def get_courses_by_department_route():
         return jsonify({"error": error}), 400
 
     return jsonify(courses)
+
+@course_bp.route('/by-type', methods=['GET'])
+def get_courses_by_type_route():
+    """
+    Fetches courses filtered by course_type_id, grouped by program.
+    Returns each program with its matching courses (code, title, unit).
+    No authentication required.
+    """
+    course_type_id = request.args.get('course_type_id', type=int)
+    if not course_type_id:
+        return jsonify({"error": "course_type_id query parameter is required."}), 400
+
+    programs, error = course_service.get_courses_by_type(course_type_id)
+
+    if error:
+        return jsonify({"error": error}), 400
+
+    return jsonify({"programs": programs}), 200
+

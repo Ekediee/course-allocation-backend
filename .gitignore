@@ -8,6 +8,8 @@ project_docs/res/
 seed*.py
 create_admin.py
 
+*.xlsx
+
 # C extensions
 *.so
 

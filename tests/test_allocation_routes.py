@@ -129,3 +129,67 @@ def test_get_hod_allocations_by_specialization(test_client):
     swe_300 = next((s for s in level300_data['specializations'] if s['name'] == 'Software Engineering'), None)
     assert swe_300 is not None
     assert swe_300['courses'][0]['code'] == 'SENG302'
+
+
+def test_get_allocations_by_session_and_semester_success(test_client):
+    """Should return 200 with allocations grouped by semester then program when both session_id and semester_id are provided."""
+    session = AcademicSession.query.filter_by(name="2024/2025").first()
+    semester = Semester.query.filter_by(name="First Semester").first()
+
+    response = test_client.get(f'/api/v1/allocation/by-session?session_id={session.id}&semester_id={semester.id}')
+    assert response.status_code == 200
+
+    data = response.get_json()
+    assert data["session"]["id"] == session.id
+    assert len(data["semesters"]) == 1
+    assert data["semesters"][0]["id"] == semester.id
+    assert len(data["semesters"][0]["programs"]) == 1
+
+    program_data = data["semesters"][0]["programs"][0]
+    assert program_data["name"] == "B.Sc. Computer Science"
+    assert len(program_data["courses"]) == 1
+
+    course_data = program_data["courses"][0]
+    assert course_data["code"] == "COSC101"
+    assert course_data["title"] == "Intro to CS"
+    assert course_data["unit"] == 3
+    assert course_data["lecturer"]["name"] == "Dr. HOD"
+    assert course_data["lecturer"]["staff_id"] == "HOD001"
+
+
+def test_get_allocations_by_session_only_success(test_client):
+    """Should return 200 with allocations for all semesters in the session when semester_id is omitted."""
+    session = AcademicSession.query.filter_by(name="2024/2025").first()
+
+    response = test_client.get(f'/api/v1/allocation/by-session?session_id={session.id}')
+    assert response.status_code == 200
+
+    data = response.get_json()
+    assert data["session"]["id"] == session.id
+    assert len(data["semesters"]) >= 1
+
+
+def test_get_allocations_missing_session_id(test_client):
+    """Should return 400 when session_id query parameter is missing."""
+    response = test_client.get('/api/v1/allocation/by-session')
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+
+
+def test_get_allocations_invalid_session_id(test_client):
+    """Should return 404 when session_id does not exist."""
+    response = test_client.get('/api/v1/allocation/by-session?session_id=99999')
+    assert response.status_code == 404
+    data = response.get_json()
+    assert "error" in data
+
+
+def test_get_allocations_invalid_semester_id(test_client):
+    """Should return 404 when semester_id does not exist."""
+    session = AcademicSession.query.filter_by(name="2024/2025").first()
+    response = test_client.get(f'/api/v1/allocation/by-session?session_id={session.id}&semester_id=99999')
+    assert response.status_code == 404
+    data = response.get_json()
+    assert "error" in data
+

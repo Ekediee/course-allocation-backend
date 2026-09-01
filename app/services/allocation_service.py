@@ -764,3 +764,104 @@ def identify_100_level_code(course_code):
     
     return None, "Invalid course code format"
 
+
+def get_allocations_by_session_and_semester(session_id, semester_id=None):
+    """
+    Returns course allocations for a given session (and optional semester),
+    grouped by semester, then by program.
+    Each course item includes code, title, unit, program, and lecturer details.
+    """
+    from collections import defaultdict
+
+    session = db.session.get(AcademicSession, session_id)
+    if not session:
+        return None, "Academic session not found."
+
+    if semester_id is not None:
+        semester = db.session.get(Semester, semester_id)
+        if not semester:
+            return None, "Semester not found."
+
+    query = (
+        CourseAllocation.query
+        .join(CourseAllocation.program_course)
+        .filter(CourseAllocation.session_id == session_id)
+    )
+
+    if semester_id is not None:
+        query = query.filter(CourseAllocation.semester_id == semester_id)
+
+    allocations = query.all()
+
+    semester_map = defaultdict(lambda: {
+        "id": None,
+        "name": None,
+        "programs": defaultdict(lambda: {
+            "id": None,
+            "name": None,
+            "courses": []
+        })
+    })
+
+    for alloc in allocations:
+        pc = alloc.program_course
+        course = pc.course if pc else None
+        prog = pc.program if pc else None
+        sem = alloc.semester or (pc.semester if pc else None)
+
+        if not pc or not course or not prog or not sem:
+            continue
+
+        lecturer_data = None
+        if alloc.lecturer_profile:
+            lec_name = None
+            if alloc.lecturer_profile.user_account:
+                if isinstance(alloc.lecturer_profile.user_account, list):
+                    lec_name = alloc.lecturer_profile.user_account[0].name if alloc.lecturer_profile.user_account else None
+                else:
+                    lec_name = getattr(alloc.lecturer_profile.user_account, 'name', None)
+
+            lecturer_data = {
+                "id": alloc.lecturer_profile.id,
+                "staff_id": alloc.lecturer_profile.staff_id,
+                "name": lec_name
+            }
+
+        sem_entry = semester_map[sem.id]
+        sem_entry["id"] = sem.id
+        sem_entry["name"] = sem.name
+
+        prog_entry = sem_entry["programs"][prog.id]
+        prog_entry["id"] = prog.id
+        prog_entry["name"] = prog.name
+
+        prog_entry["courses"].append({
+            "allocation_id": alloc.id,
+            "course_id": course.id,
+            "code": course.code,
+            "title": course.title,
+            "unit": course.units,
+            "group_name": alloc.group_name,
+            "lecturer": lecturer_data
+        })
+
+    result_semesters = []
+    for sem_id, sem_val in semester_map.items():
+        programs_list = list(sem_val["programs"].values())
+        result_semesters.append({
+            "id": sem_val["id"],
+            "name": sem_val["name"],
+            "programs": programs_list
+        })
+
+    result = {
+        "session": {
+            "id": session.id,
+            "name": session.name
+        },
+        "semesters": result_semesters
+    }
+
+    return result, None
+
+

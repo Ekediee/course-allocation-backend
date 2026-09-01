@@ -1409,3 +1409,25 @@ def get_allocation_metrics():
         return jsonify({"error": error}), 404
 
     return jsonify(metrics), 200
+
+@allocation_bp.route('/by-session', methods=['GET'])
+def get_allocations_by_session_route():
+    """
+    Fetches course allocations filtered by session_id and optional semester_id,
+    grouped by semester, then by program.
+    No authentication required.
+    """
+    session_id = request.args.get('session_id', type=int)
+    semester_id = request.args.get('semester_id', type=int)
+
+    if not session_id:
+        return jsonify({"error": "session_id query parameter is required."}), 400
+
+    data, error = allocation_service.get_allocations_by_session_and_semester(session_id, semester_id)
+
+    if error:
+        if "not found" in error.lower():
+            return jsonify({"error": error}), 404
+        return jsonify({"error": error}), 400
+
+    return jsonify(data), 200

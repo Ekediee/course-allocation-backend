@@ -32,7 +32,6 @@ except ImportError:
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
-def fetch_courses(base_url: str, course_type_id: int) -> list:
 def fetch_courses(base_url: str, course_type_id: int, verify: bool = True, proxies: dict = None) -> list:
     """Call the API and return the list of program groups."""
     url = f"{base_url.rstrip('/')}/api/v1/courses/by-type"
@@ -43,7 +42,6 @@ def fetch_courses(base_url: str, course_type_id: int, verify: bool = True, proxi
         session.proxies.update(proxies)
 
     try:
-        response = requests.get(url, params={"course_type_id": course_type_id}, timeout=10)
         response = session.get(
             url,
             params={"course_type_id": course_type_id},
@@ -51,9 +49,6 @@ def fetch_courses(base_url: str, course_type_id: int, verify: bool = True, proxi
             verify=verify,
         )
         response.raise_for_status()
-    except requests.exceptions.ConnectionError:
-        sys.exit(f"Could not connect to the server at {base_url}. Is the Flask dev server running?")
-    except requests.exceptions.HTTPError as e:
     except requests.exceptions.SSLError as e:
         sys.exit(
             f"SSL certificate error: {e}\n"
@@ -241,7 +236,6 @@ def main():
     output_path = Path(output_filename)
 
     print(f"Fetching courses for course_type_id={args.course_type_id} from {args.base_url} ...")
-    programs = fetch_courses(args.base_url, args.course_type_id)
     if not verify:
         print("  ⚠  SSL verification disabled.")
     if proxies:

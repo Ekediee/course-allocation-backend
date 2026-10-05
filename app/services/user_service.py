@@ -153,3 +153,49 @@ def delete_user(user_id):
     except Exception as e:
         db.session.rollback()
         return None, str(e)
+
+def get_lecturers_grouped_by_department():
+    """
+    Fetches users with role 'lecturer' or 'hod', grouped by department,
+    excluding 'Registry' and 'Academic Planning' departments.
+    """
+    try:
+        excluded_depts = ['Registry', 'Academic Planning']
+        
+        departments = Department.query.filter(Department.name.notin_(excluded_depts)).all()
+        
+        result = []
+        for dept in departments:
+            # Join User and Lecturer
+            users = db.session.query(
+                User.name, User.email, User.role,
+                Lecturer.staff_id, Lecturer.gender, Lecturer.rank,
+                Lecturer.qualification, Lecturer.specialization, Lecturer.other_responsibilities
+            ).join(Lecturer, User.lecturer_id == Lecturer.id)\
+             .filter(User.department_id == dept.id)\
+             .filter(User.role.in_(['lecturer', 'hod'])).all()
+            
+            if users:
+                dept_data = {
+                    "name": dept.name,
+                    "lecturers": []
+                }
+                for u in users:
+                    lecturer_data = {
+                        "staff_id": u.staff_id,
+                        "name": u.name,
+                        "role": u.role,
+                        "gender": u.gender,
+                        "email": u.email,
+                        "rank": u.rank,
+                        "qualification": u.qualification,
+                        "specialization": u.specialization,
+                        "other_responsibilities": u.other_responsibilities
+                    }
+                    dept_data["lecturers"].append(lecturer_data)
+                
+                result.append(dept_data)
+                
+        return {"departments": result}, 200
+    except Exception as e:
+        return {"error": str(e)}, 500

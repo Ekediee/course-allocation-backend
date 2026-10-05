@@ -157,3 +157,9 @@ def test_delete_user_not_found(test_client):
     headers = get_auth_headers("super@admin.com")
     response = test_client.delete('/api/v1/users/9999', headers=headers)
     assert response.status_code == 404
+def test_get_lecturers_by_department(test_client):
+    response = test_client.get('/api/v1/users/lecturers')
+    assert response.status_code == 200
+    json_data = response.get_json()
+    assert "departments" in json_data
+    assert isinstance(json_data["departments"], list)

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, current_user
-from app.services.user_service import get_all_users, create_user, create_users_batch, update_user, delete_user
+from app.services.user_service import get_all_users, create_user, create_users_batch, update_user, delete_user, get_lecturers_grouped_by_department
 import re
 
 user_bp = Blueprint('users', __name__)
@@ -107,3 +107,8 @@ def handle_delete_user(user_id):
         return jsonify({'error': error}), 500
         
     return jsonify({"msg": "User deleted successfully"}), 200
+
+@user_bp.route('/lecturers', methods=['GET'])
+def handle_get_lecturers_by_department():
+    response, status_code = get_lecturers_grouped_by_department()
+    return jsonify(response), status_code

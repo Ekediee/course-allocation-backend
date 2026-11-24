@@ -47,7 +47,7 @@ def auth_user(data):
             temp_dept = umisid.split("-")[1]
             umisid = umisid.split("-")[0]
 
-        if "it" in umisid:
+        if "info_tech" in umisid:
             temp_dept = umisid.split("-")[1]
             umisid = umisid.split("-")[0]
 
@@ -147,7 +147,7 @@ def auth_user(data):
         if "anatomy" in temp_dept:
             umisid = os.getenv('ANATOMY')
 
-        if "it" in temp_dept:
+        if "info_tech" in temp_dept:
             umisid = os.getenv('IT')
 
         if "biochem" in temp_dept:

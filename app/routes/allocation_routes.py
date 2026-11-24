@@ -941,6 +941,11 @@ def get_courses_for_allocation_by_bulletin():
     if not current_user or not current_user.is_hod:
         return jsonify({'msg': 'Access denied. Only HODs can view this data.'}), 403
 
+    # Resolve active academic session
+    active_session = AcademicSession.query.filter_by(is_active=True).first()
+    if not active_session:
+        return jsonify({"error": "No active session found"}), 404
+
     # Get query parameters
     data = request.get_json()
     bulletin_name = data.get('bulletin')
@@ -985,18 +990,28 @@ def get_courses_for_allocation_by_bulletin():
 
     # Performance Optimization 
     pc_ids = [pc.id for pc in program_courses]
-    all_allocations = CourseAllocation.query.filter(
-        CourseAllocation.program_course_id.in_(pc_ids),
-        CourseAllocation.semester_id == semester.id
-    ).all()
-    allocations_map = {alloc.program_course_id: alloc for alloc in all_allocations}
+    allocations_map = defaultdict(list)
+    if pc_ids:
+        all_allocations = CourseAllocation.query.filter(
+            CourseAllocation.program_course_id.in_(pc_ids),
+            CourseAllocation.semester_id == semester.id,
+            CourseAllocation.session_id == active_session.id
+        ).all()
+        for alloc in all_allocations:
+            allocations_map[alloc.program_course_id].append(alloc)
 
     # Structure the data by level
     levels_data = {}
     for pc in program_courses:
         level = pc.level
         course = pc.course
-        allocation = allocations_map.get(pc.id)
+        allocations = allocations_map.get(pc.id, [])
+        allocated_to_names = [
+            alloc.lecturer_profile.user_account[0].name
+            for alloc in allocations
+            if alloc.lecturer_profile and alloc.lecturer_profile.user_account
+        ]
+        allocated_to = ", ".join(allocated_to_names) if allocated_to_names else None
 
         if level.id not in levels_data:
             levels_data[level.id] = {
@@ -1018,8 +1033,8 @@ def get_courses_for_allocation_by_bulletin():
                     "title": course.title,
                     "unit": course.units,
                     "specialization": spec_name, # Set the specific specialization
-                    "isAllocated": bool(allocation),
-                    "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
+                    "isAllocated": bool(allocations),
+                    "allocatedTo": allocated_to
                 })
         # Otherwise, add it as a "General" course.
         else:
@@ -1030,8 +1045,8 @@ def get_courses_for_allocation_by_bulletin():
                 "title": course.title,
                 "unit": course.units,
                 "specialization": "General", # Default value
-                "isAllocated": bool(allocation),
-                "allocatedTo": allocation.lecturer_profile.user_account[0].name if allocation else None
+                "isAllocated": bool(allocations),
+                "allocatedTo": allocated_to
             })
 
     # After populating, loop through the levels and sort their courses
